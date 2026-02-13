@@ -57,7 +57,8 @@ clc; clear all; close all;
     intrinsics = cameraIntrinsics([depth_intrinsics.fx,depth_intrinsics.fy],[depth_intrinsics.ppx,depth_intrinsics.ppy],size(depth_frame));
     
     % Create a point cloud
-    ptCloud = pcfromdepth(depth_frame,1/depth_scaling,intrinsics,ColorImage=color_frame)
+    ptCloud = pcfromdepth(depth_frame,1/depth_scaling,intrinsics,ColorImage=color_frame);
+    display(ptCloud)
     
 rgb = (ptCloud.Color);
 
@@ -103,23 +104,23 @@ title("RGB Image")
 
 % pcshow(pointCloud(lightpoints), "VerticalAxisDir","Down");
 
-pixel_labels = segment_cluster(rgb, 3);
+% pixel_labels = segment_cluster(rgb, 3);
 % overlay = labeloverlay(rgb, pixel_labels);
-display = label2rgb(pixel_labels, 'jet');
+% display = label2rgb(pixel_labels, 'jet');
 % imshow(display);
 
 
-mask = (pixel_labels == 3);
-
-X = ptCloud.Location(:,:,1);
-Y = ptCloud.Location(:,:,2);
-Z = ptCloud.Location(:,:,3);
-
-points_xyz = [ ...
-    X(mask), ...
-    Y(mask), ...
-    Z(mask) ...
-];
+% mask = (pixel_labels == 3);
+% 
+% X = ptCloud.Location(:,:,1);
+% Y = ptCloud.Location(:,:,2);
+% Z = ptCloud.Location(:,:,3);
+% 
+% points_xyz = [ ...
+%     X(mask), ...
+%     Y(mask), ...
+%     Z(mask) ...
+% ];
 
 
 
@@ -127,6 +128,7 @@ points_xyz = [ ...
 
 figure;
 pcshow(ptCloud, "VerticalAxisDir", "Down");
+pcwrite(ptCloud,'ptCloud.pcd','Encoding','ascii');
 title("Original Point Cloud")
 
 % % 
@@ -134,15 +136,12 @@ title("Original Point Cloud")
 % pc = pointCloud(points_xyz);
 % pcshow(pc, "VerticalAxisDir","Down");
 
-maxDistance = 0.02; % 0.3 cm
+maxDistance = 0.02; % 2 cm
 referenceVector = [0, 0, 1]; % z axis
 maxAngularDistance = 5; % degrees
 
 [model1,inlierIndices,outlierIndices] = pcfitplane(ptCloud,...
             maxDistance,referenceVector,maxAngularDistance);
-
-
-
 
 figure;
 
@@ -157,81 +156,131 @@ end
 % figure;
 % pcshow(remainPtCloud, "VerticalAxisDir", "Down")
 % title("Cubes without Plane")
-
+numColors = 4;
 numClusters = 6;
 imshow(plane1_new);
 [plane1_seg, Centers] = imsegkmeans(plane1_new, numClusters, numAttempts=3);
 L = plane1_seg;
 figure;
 imshow(label2rgb(plane1_seg))
-% 
-% bw = plane1_seg(:,:,:) > 1;
-% mask1 = bwareaopen(bw, 2000);
-% % mask2 = imclearborder(mask1);
-% % mask3 = imfill(mask2, "holes");
-% % mask4 = imdilate(mask3, 1);
-% figure;
-% imshow(mask1)
 
-% img = plane1_new;   % your uint8 image
 
-range = 10;
+dominantColors = zeros(numClusters, 3); % store mean RGB
+
+for i = 1:numClusters
+    mask = (plane1_seg == i); % pixels belonging to cluster i
+    for c = 1:3
+        channel = plane1_new(:,:,c);
+        dominantColors(i,c) = mean(channel(mask)); % mean RGB of cluster
+    end
+end
+
 y = [135 51 0];
 r = [87 13 17];
 g = [1 37 5];
 b = [0 54 68];
+grey = [98 86 68];
 background = [0 0 0];
 
-iterations = double([y; r; g; b; background;]);
-my_labels = ['y','r', 'g', 'b', 'background'];
+referenceColors = double([y; r; g; b; grey; background]);
+labels = ["yellow","red","green","blue","grey","background"];
 
-numLabels = length(my_labels);
-
-
-
-Centers = double(Centers);
-
-for i = 1:size(Centers,1)
-
-    losses = vecnorm(iterations - Centers(i,:), 2, 2);
-
-    [~, idx] = min(losses);
-
-    fprintf("Cluster %d is %s\n", i, my_labels(idx));
-end
-
-
-figure;
-
-numClusters = size(Centers,1);
+clusterLabels = strings(numClusters,1);
 
 for i = 1:numClusters
+    dists = vecnorm(referenceColors - dominantColors(i,:), 2, 2); % Euclidean distance
+    [~, idx] = min(dists);
+    clusterLabels(i) = labels(idx);
+end
 
-    % Recompute the identified color index (same logic as above)
-    losses = vecnorm(iterations - Centers(i,:), 2, 2);
-    [~, idx] = min(losses);
+[sortedLabels, sortIdx] = sort(clusterLabels);
 
-    identified_color = string(my_labels(idx));
+segmented_colors = uint8(zeros(480,640, numColors));
 
-    % Binary mask for this cluster
+% Reorder clusters for display
+for k = 1:numClusters
+    i = sortIdx(k);
     mask = (plane1_seg == i);
-
-    % Segment original image using mask
+    
     segmented_img = zeros(size(plane1_new), 'uint8');
     for c = 1:3
         channel = plane1_new(:,:,c);
         channel(~mask) = 0;
         segmented_img(:,:,c) = channel;
     end
-
-    subplot(3,2,i)
+    subplot(3,2,k)
     imshow(segmented_img)
-    title(sprintf("Cluster %d → %s", i, identified_color))
+    title(sprintf("Cluster %d → %s", i, clusterLabels(i)))
+    if clusterLabels(i) == "blue"
+        segmented_colors(:,:,3) = rgb2gray(segmented_img);
+    elseif clusterLabels(i) == "red"
+        segmented_colors(:,:,1) = rgb2gray(segmented_img);
+    elseif clusterLabels(i) == "yellow" 
+        segmented_colors(:,:,4) = rgb2gray(segmented_img);
+    elseif clusterLabels(i) == "green"
+        segmented_colors(:,:,2) = rgb2gray(segmented_img);
+    end
+end
+%==============================================================
+% 
+% for j = numColors
+%     CC = bwconncomp(segmented_colors(:,:,j));
+%     display(CC.NumObjects)
+% end
+figure;
 
+colorNames = ["Red","Green","Blue","Yellow"];
+
+for c = 1:4
+    
+    binaryMask = segmented_colors(:,:,c) > 0;
+    
+    CC = bwconncomp(binaryMask);
+    
+    stats = regionprops("table", CC, ...
+        "Centroid", "MajorAxisLength", ...
+        "MinorAxisLength", "Orientation");
+    
+    subplot(2,2,c)
+    imshow(binaryMask)
+    title(colorNames(c))
+    hold on
+    
+    for k = 1:height(stats)
+        
+        % Extract region properties
+        x = stats.Centroid(k,1);
+        y = stats.Centroid(k,2);
+        major = stats.MajorAxisLength(k);
+        minor = stats.MinorAxisLength(k);
+        theta = deg2rad(-stats.Orientation(k));
+        
+        % ----- Centroid -----
+        plot(x, y, 'go', 'MarkerSize', 6, 'LineWidth', 2);
+        
+        % ----- Major axis -----
+        dx_major = (major/2) * cos(theta);
+        dy_major = (major/2) * sin(theta);
+        
+        plot([x - dx_major, x + dx_major], ...
+             [y - dy_major, y + dy_major], ...
+             'r', 'LineWidth', 2);
+        
+        % ----- Minor axis -----
+        dx_minor = (minor/2) * -sin(theta);
+        dy_minor = (minor/2) * cos(theta);
+        
+        plot([x - dx_minor, x + dx_minor], ...
+             [y - dy_minor, y + dy_minor], ...
+             'b', 'LineWidth', 2);
+    end
+    
+    hold off
 end
 
 
 
+%==============================================================
 % for label_i = 1:numClusters
 %     losses = zeros(1,numLabels);
 %     for label_known = 1:numLabels
