@@ -128,7 +128,7 @@ title("RGB Image")
 
 figure;
 pcshow(ptCloud, "VerticalAxisDir", "Down");
-pcwrite(ptCloud,'ptCloud.pcd','Encoding','ascii');
+pcwrite(ptCloud,'ptCloudMaslaExample5.pcd','Encoding','ascii');
 title("Original Point Cloud")
 
 % % 
@@ -221,25 +221,47 @@ for k = 1:numClusters
         segmented_colors(:,:,2) = rgb2gray(segmented_img);
     end
 end
-%==============================================================
-% 
-% for j = numColors
-%     CC = bwconncomp(segmented_colors(:,:,j));
-%     display(CC.NumObjects)
-% end
+
+%s
+X_layer = ptCloud.Location(:,:,1);
+Y_layer = ptCloud.Location(:,:,2);
+Z_layer = ptCloud.Location(:,:,3);
+
 figure;
 
 colorNames = ["Red","Green","Blue","Yellow"];
+
+
 
 for c = 1:4
     
     binaryMask = segmented_colors(:,:,c) > 0;
     
+    %s
+    % 1. Fill small holes inside the cube
+    binaryMask = imfill(binaryMask, 'holes');
+    % 2. Remove tiny noise (anything smaller than 500 pixels)
+    binaryMask = bwareaopen(binaryMask, 500); 
+    % 3. Bridge small gaps between parts of the same cube
+    se = strel('disk', 5);
+    binaryMask = imclose(binaryMask, se);
+    
     CC = bwconncomp(binaryMask);
     
     stats = regionprops("table", CC, ...
-        "Centroid", "MajorAxisLength", ...
-        "MinorAxisLength", "Orientation");
+        "Area", "Centroid", "MajorAxisLength", ...
+        "MinorAxisLength", "Orientation", "PixelIdxList"); %s
+
+    %s
+    if isempty(stats)
+        fprintf('No object found for color: %s\n', colorNames(c));
+        continue; 
+    end
+    
+    %s
+    % 1 co-ordinate per color
+    [~, largestIdx] = max(stats.Area);
+    pixelIdx = stats.PixelIdxList{largestIdx};
     
     subplot(2,2,c)
     imshow(binaryMask)
@@ -273,6 +295,39 @@ for c = 1:4
         plot([x - dx_minor, x + dx_minor], ...
              [y - dy_minor, y + dy_minor], ...
              'b', 'LineWidth', 2);
+        %s
+        pixelIdx = stats.PixelIdxList{k};
+        
+        blobX = X_layer(pixelIdx);
+        blobY = Y_layer(pixelIdx);
+        blobZ = Z_layer(pixelIdx);
+
+        % Filter out NaNs (invalid depth points)
+        validPts = ~isnan(blobX) & ~isnan(blobY) & ~isnan(blobZ);
+        if sum(validPts) > 0
+            % Calculate robust 3D centroid (Median is safer than Mean for depth)
+            objX = median(blobX(validPts));
+            objY = median(blobY(validPts));
+            objZ_cube = median(blobZ(validPts)); % This is depth from camera
+        
+            % 1. Get plane parameters [A, B, C, D]
+            params = model1.Parameters;
+            A = params(1); B = params(2); C = params(3); D = params(4);
+        
+            % 2. Calculate the Z-value of the plane at the cube's (X,Y) position
+            % Formula: Ax + By + Cz + D = 0  =>  z = -(Ax + By + D) / C
+            objZ_plane = -(A*objX + B*objY + D) / C;
+        
+            % 3. Calculate Height relative to the table
+            % Height is (Depth to Table) - (Depth to Cube Top)
+            cubeHeight = objZ_plane - objZ_cube;
+            fprintf('  Cube %s:\n', colorNames(c));
+            fprintf(' [%.3f, %.3f, %.3f, %.3f] \n', A,B,C,D);
+            fprintf('  Camera-Relative (X, Y, Z): [%.3f, %.3f, %.3f] m\n', objX, objY, objZ_cube);
+            fprintf('  Table Depth at this point: %.3f m\n', objZ_plane);
+            fprintf('  Cube Height above Table:   %.3f m (approx %.1f cm)\n\n', cubeHeight, cubeHeight*100);
+        end
+
     end
     
     hold off
