@@ -1,139 +1,16 @@
-clc; clear all; close all;
+function vision_pipeline(pointCloud)
+[sliced_rgb, params] = find_plane(pointCloud);
+[segmented_rgb, Centers, numClusters] = segment(sliced_rgb)
+imshow(label2rgb(segmented_rgb))
 
-read_flag = "file" % or file 
-
-if (read_flag == "stream")
-
-    % Make Pipeline object to manage streaming
-    pipe = realsense.pipeline();
-    
-    % Start streaming on an arbitrary camera with default settings
-    profile = pipe.start();
-
-    % Get streaming device's name
-    dev = profile.get_device();  
-
-    % Access Depth Sensor
-    depth_sensor = dev.first('depth_sensor');
-
-    % Find the mapping from 1 depth unit to meters, i.e. 1 depth unit =
-    % depth_scaling meters.
-    depth_scaling = depth_sensor.get_depth_scale();
-
-    % Extract the depth stream
-    depth_stream = profile.get_stream(realsense.stream.depth).as('video_stream_profile');
-    
-    % Get the intrinsics
-    depth_intrinsics = depth_stream.get_intrinsics();
-
-    % Get frames. We discard the first couple to allow
-    % the camera time to settle
-    for i = 1:5
-        fs = pipe.wait_for_frames();
-    end
-    
-    % Alignment is necessary as the depth cameras and RGB cameras are
-    % physically separated. So, the same (x,y,z) in real world maps to
-    % different (u,v) in the depth image and the color images. To build a
-    % point cloud we only need depth image, but if we want the color the
-    % cloud then we'll need the other image.
-
-    % Since the two images are of different sizes, we can either align the
-    % depth to color image, or the color to depth.
-    % Change the argument to realsense.stream.color to align to the color
-    % image.
-    align_to_depth = realsense.align(realsense.stream.depth);
-    fs = align_to_depth.process(fs);
-    
-    % Stop streaming
-    pipe.stop();
-
-    % Extract the depth frame
-    depth = fs.get_depth_frame();
-    depth_data = double(depth.get_data());
-    depth_frame = permute(reshape(depth_data',[ depth.get_width(),depth.get_height()]),[2 1]);
-
-    % Extract the color frame
-    color = fs.get_color_frame();    
-    color_data = color.get_data();
-    color_frame = permute(reshape(color_data',[3,color.get_width(),color.get_height()]),[3 2 1]);
-
-    % Create a MATLAB intrinsics object
-    intrinsics = cameraIntrinsics([depth_intrinsics.fx,depth_intrinsics.fy],[depth_intrinsics.ppx,depth_intrinsics.ppy],size(depth_frame));
-    
-    % Create a point cloud
-    ptCloud = pcfromdepth(depth_frame,1/depth_scaling,intrinsics,ColorImage=color_frame);
-    display(ptCloud)
-elseif (read_flag == "file")
-    % ptCloud = pcread("ptCloud.pcd")
-    ptCloud = pcread("ptCloudMaslaExample4.pcd")
-end
-
-
-rgb = (ptCloud.Color);
-
-figure;
-imshow(rgb, [])
-title("RGB Image")
-
-maxDistance = 0.02; % 2 cm
-referenceVector = [0, 0, 1]; % z axis
-maxAngularDistance = 5; % degrees
-
-[model1,inlierIndices,outlierIndices] = pcfitplane(ptCloud,...
-            maxDistance,referenceVector,maxAngularDistance);
-
-figure;
-
-plane1_new = uint8(zeros(480,640, 3));
-[row, col] = ind2sub([480 640], outlierIndices);
-for k = 1:length(outlierIndices)
-    plane1_new(row(k), col(k), :) = uint8(ptCloud.Color(row(k), col(k), :));
-end
-
-ds_factor = 1; 
-plane_small = imresize(plane1_new, 1/ds_factor, 'nearest');
-[rows_s, cols_s, ~] = size(plane_small);
-
-% --- 2. Reshape to Nx3 (List of RGB pixels) ---
-pixels_s = double(reshape(plane_small, [], 3));
-
-% --- 3. Filter Background (Crucial Step) ---
-% We only want to cluster pixels that aren't black (the table/background)
-valid_mask = sum(pixels_s, 2) > 15; % Adjust threshold if cubes are very dark
-pixelData = pixels_s(valid_mask, :);
-
-% --- 4. Run DBSCAN on Color Data ---
-epsilon = 7;    % Search radius in RGB space
-minpts = 400;   % Minimum pixels to form a cluster at 1/4 resolution
-idx = dbscan(pixelData, epsilon, minpts);
-
-% --- 5. Map Labels Back to Image Shape ---
-L_small = zeros(rows_s * cols_s, 1);
-L_small(valid_mask) = idx;
-L_small_mat = reshape(L_small, [rows_s, cols_s]);
-
-% --- 6. Upscale to Original Resolution ---
-plane1_seg = imresize(L_small_mat, [480, 640], 'nearest');
-
-foundClusters = max(idx);
-fprintf('DBSCAN found %d actual colored objects.\n', foundClusters);
 
 numColors = 4;
-numClusters = foundClusters;
-imshow(plane1_new);
-[plane1_seg, Centers] = imsegkmeans(plane1_new, numClusters, numAttempts=3);
-L = plane1_seg;
-figure;
-imshow(label2rgb(plane1_seg))
-
-
 dominantColors = zeros(numClusters, 3); % store mean RGB
 
 for i = 1:numClusters
-    mask = (plane1_seg == i); % pixels belonging to cluster i
+    mask = (segmented_rgb == i); % pixels belonging to cluster i
     for c = 1:3
-        channel = plane1_new(:,:,c);
+        channel = sliced_rgb(:,:,c);
         dominantColors(i,c) = mean(channel(mask)); % mean RGB of cluster
     end
 end
@@ -163,11 +40,11 @@ segmented_colors = uint8(zeros(480,640, numColors));
 % Reorder clusters for display
 for k = 1:numClusters
     i = sortIdx(k);
-    mask = (plane1_seg == i);
+    mask = (segmented_rgb == i);
     
-    segmented_img = zeros(size(plane1_new), 'uint8');
+    segmented_img = zeros(size(sliced_rgb), 'uint8');
     for c = 1:3
-        channel = plane1_new(:,:,c);
+        channel = sliced_rgb(:,:,c);
         channel(~mask) = 0;
         segmented_img(:,:,c) = channel;
     end
@@ -186,9 +63,9 @@ for k = 1:numClusters
 end
 
 %s
-X_layer = ptCloud.Location(:,:,1);
-Y_layer = ptCloud.Location(:,:,2);
-Z_layer = ptCloud.Location(:,:,3);
+X_layer = pointCloud.Location(:,:,1);
+Y_layer = pointCloud.Location(:,:,2);
+Z_layer = pointCloud.Location(:,:,3);
 
 figure;
 
@@ -274,8 +151,8 @@ for c = 1:4
             objZ_cube = median(blobZ(validPts)); % This is depth from camera
         
             % 1. Get plane parameters [A, B, C, D]
-            params = model1.Parameters;
-            A = params(1); B = params(2); C = params(3); D = params(4);
+            parameters = params.Parameters;
+            A = parameters(1); B = parameters(2); C = parameters(3); D = parameters(4);
         
             % 2. Calculate the Z-value of the plane at the cube's (X,Y) position
             % Formula: Ax + By + Cz + D = 0  =>  z = -(Ax + By + D) / C
