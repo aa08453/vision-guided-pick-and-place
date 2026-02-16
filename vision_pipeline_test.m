@@ -1,5 +1,12 @@
 clc; clear all; close all;
-read_flag = "test" % or file 
+read_flag = "file" % or file 
+desired = {["red"]; 
+           ["red"]; 
+           ["yellow"]; 
+           ["red", "yellow"]; 
+           ["blue"];
+           ["red", "yellow", "blue", "green"]}; 
+
 
 if (read_flag == "stream")
 
@@ -66,12 +73,7 @@ if (read_flag == "stream")
 elseif (read_flag == "test")
     % ptCloud = pcread("ptCloud.pcd")
     
-    desired = {["red"]; 
-               ["red"]; 
-               ["yellow"]; 
-               ["red", "yellow"]; 
-               ["blue"]}; 
-    for i=1:5
+    for i=1:6
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
         [segmented_rgb, sorted] = vision_pipeline(ptCloud);
         keepIdx = (sorted ~= "background") & (sorted ~= "grey");
@@ -89,7 +91,20 @@ elseif (read_flag == "test")
     end
     
 elseif (read_flag == "file")
-        i = 5;
+        i = 6;
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
         [segmented_rgb, sorted] = vision_pipeline(ptCloud);
+        keepIdx = (sorted ~= "background") & (sorted ~= "grey");
+        recieved = sorted(keepIdx);
+
+        if isequal(sort(strtrim(recieved(:))), sort(strtrim(desired{i}(:))))
+            status = "✅";
+        else 
+            status = "❌";
+        end
+        rec_str = strjoin(recieved, ", ");
+        des_str = strjoin(desired{i}, ", ");
+        fprintf('Test %i: [Desired: %-15s] | [Recieved: %-15s] %s\n', ...
+            i, des_str, rec_str, status);
+
 end
