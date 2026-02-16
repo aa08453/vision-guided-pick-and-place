@@ -1,66 +1,20 @@
 function [segmented_rgb, sortedLabels] = vision_pipeline(pointCloud)
 [sliced_rgb, params] = find_plane(pointCloud);
-[segmented_rgb, Centers, numClusters] = segment(sliced_rgb);
+[segmented_rgb, Centers, numClusters] = segment(sliced_rgb); % Gives segment mask
 imshow(label2rgb(segmented_rgb));
+[mergedSegments, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb);
 
 
-numColors = 4;
-dominantColors = zeros(numClusters, 3); % store mean RGB
+% Map 1->Yellow, 2->Red, 3->Green, 4->Blue
+customColormap = [1 1 0;  % 1: Yellow
+                  1 0 0;  % 2: Red
+                  0 1 0;  % 3: Green
+                  0 0 1]; % 4: Blue
 
-for i = 1:numClusters
-    mask = (segmented_rgb == i); % pixels belonging to cluster i
-    for c = 1:3
-        channel = sliced_rgb(:,:,c);
-        dominantColors(i,c) = mean(channel(mask)); % mean RGB of cluster
-    end
-end
+rgbLabelImage = label2rgb(mergedSegments, customColormap, 'k'); % 'k' for black background
+imshow(rgbLabelImage);
+title('Collapsed 2D Label Map');
 
-y = [135 51 0];
-r = [87 13 17];
-g = [1 37 5];
-b = [0 54 68];
-grey = [98 86 68];
-background = [0 0 0];
-
-referenceColors = double([y; r; g; b; grey; background]);
-labels = ["yellow","red","green","blue","grey","background"];
-
-clusterLabels = strings(numClusters,1);
-
-for i = 1:numClusters
-    dists = vecnorm(referenceColors - dominantColors(i,:), 2, 2); % Euclidean distance
-    [~, idx] = min(dists);
-    clusterLabels(i) = labels(idx);
-end
-
-[sortedLabels, sortIdx] = sort(clusterLabels);
-
-segmented_colors = uint8(zeros(480,640, numColors));
-
-% Reorder clusters for display
-for k = 1:numClusters
-    i = sortIdx(k);
-    mask = (segmented_rgb == i);
-    
-    segmented_img = zeros(size(sliced_rgb), 'uint8');
-    for c = 1:3
-        channel = sliced_rgb(:,:,c);
-        channel(~mask) = 0;
-        segmented_img(:,:,c) = channel;
-    end
-    subplot(3,2,k)
-    imshow(segmented_img)
-    title(sprintf("Cluster %d → %s", i, clusterLabels(i)))
-    if clusterLabels(i) == "blue"
-        segmented_colors(:,:,3) = rgb2gray(segmented_img);
-    elseif clusterLabels(i) == "red"
-        segmented_colors(:,:,1) = rgb2gray(segmented_img);
-    elseif clusterLabels(i) == "yellow" 
-        segmented_colors(:,:,4) = rgb2gray(segmented_img);
-    elseif clusterLabels(i) == "green"
-        segmented_colors(:,:,2) = rgb2gray(segmented_img);
-    end
-end
 
 %s
 X_layer = pointCloud.Location(:,:,1);
