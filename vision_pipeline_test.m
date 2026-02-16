@@ -1,5 +1,5 @@
 clc; clear all; close all;
-read_flag = "file" % or file 
+read_flag = "test" % or file 
 
 if (read_flag == "stream")
 
@@ -77,7 +77,7 @@ elseif (read_flag == "test")
         keepIdx = (sorted ~= "background") & (sorted ~= "grey");
         recieved = sorted(keepIdx);
 
-        if isequal(sort(recieved), sort(desired{i}))
+        if isequal(sort(strtrim(recieved(:))), sort(strtrim(desired{i}(:))))
             status = "✅";
         else 
             status = "❌";
@@ -89,7 +89,7 @@ elseif (read_flag == "test")
     end
     
 elseif (read_flag == "file")
-        i = 1
+        i = 1;
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
-        [segmented_rgb, sorted] = vision_pipeline(ptCloud)
+        [segmented_rgb, sorted] = vision_pipeline(ptCloud);
 end
