@@ -66,7 +66,7 @@ if (read_flag == "stream")
     display(ptCloud)
 elseif (read_flag == "file")
     % ptCloud = pcread("ptCloud.pcd")
-    ptCloud = pcread("ptCloudMaslaExample5.pcd")
+    ptCloud = pcread("ptCloudMaslaExample4.pcd")
 end
 
 
@@ -104,8 +104,8 @@ valid_mask = sum(pixels_s, 2) > 15; % Adjust threshold if cubes are very dark
 pixelData = pixels_s(valid_mask, :);
 
 % --- 4. Run DBSCAN on Color Data ---
-epsilon = 8;    % Search radius in RGB space
-minpts = 100;   % Minimum pixels to form a cluster at 1/4 resolution
+epsilon = 7;    % Search radius in RGB space
+minpts = 400;   % Minimum pixels to form a cluster at 1/4 resolution
 idx = dbscan(pixelData, epsilon, minpts);
 
 % --- 5. Map Labels Back to Image Shape ---
