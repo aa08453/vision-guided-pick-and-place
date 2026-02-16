@@ -1,7 +1,6 @@
 function [segmented_rgb, sortedLabels] = vision_pipeline(pointCloud)
 [sliced_rgb, params] = find_plane(pointCloud);
 [segmented_rgb, Centers, numClusters] = segment(sliced_rgb); % Gives segment mask
-imshow(label2rgb(segmented_rgb));
 [mergedSegments, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb);
 
 
@@ -10,9 +9,12 @@ customColormap = [1 1 0;  % 1: Yellow
                   1 0 0;  % 2: Red
                   0 1 0;  % 3: Green
                   0 0 1]; % 4: Blue
-
 rgbLabelImage = label2rgb(mergedSegments, customColormap, 'k'); % 'k' for black background
+subplot(1,2,1);
 imshow(rgbLabelImage);
+subplot(1,2,2);
+imshow(sliced_rgb);
+
 title('Collapsed 2D Label Map');
 
 
