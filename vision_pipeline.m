@@ -1,7 +1,11 @@
 function [segmented_rgb, sortedLabels] = vision_pipeline(pointCloud)
 [sliced_rgb, params] = find_plane(pointCloud);
 [segmented_rgb, Centers, numClusters] = segment(sliced_rgb); % Gives segment mask
-[mergedSegments, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb);
+[mergedMasks, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb);
+
+
+weights = reshape([1, 2, 3, 4], [1, 1, 4]);
+mergedSegments = sum(double(mergedMasks) .* weights, 3);
 
 
 % Map 1->Yellow, 2->Red, 3->Green, 4->Blue
@@ -10,19 +14,59 @@ customColormap = [1 1 0;  % 1: Yellow
                   0 1 0;  % 3: Green
                   0 0 1]; % 4: Blue
 rgbLabelImage = label2rgb(mergedSegments, customColormap, 'k'); % 'k' for black background
-subplot(1,2,1);
+subplot(2,2,1);
 imshow(rgbLabelImage);
-subplot(1,2,2);
+title('Original image')
+subplot(2,2,2);
 imshow(sliced_rgb);
-
 title('Collapsed 2D Label Map');
 
+instanceMap = zeros(480, 640);
+currentID = 1;
 
-%s
-X_layer = pointCloud.Location(:,:,1);
-Y_layer = pointCloud.Location(:,:,2);
-Z_layer = pointCloud.Location(:,:,3);
+for c = 1:4
+    
+    bw = mergedMasks(:,:,c);
+    if ~any(bw(:)), continue; end
+    
+    % 1. Clean the mask (fills small holes that create fake peaks)
+    bw = imclose(bw, strel('disk', 5));
+    bw = imfill(bw, 'holes');
+    
+    % 2. Compute Distance Transform
+    D = -bwdist(~bw);
+    
+    % 3. CRITICAL: Suppress shallow local minima (Noise Filtering)
+    % This "flattens" the bottom of the distance transform so only
+    % significant peaks remain. Adjust '1.5' if it's still too sensitive.
+    D_modified = imimposemin(D, imextendedmin(D, 1.5));
+    
+    % 4. Run Watershed on the modified distance transform
+    L = watershed(D_modified);
+    L(~bw) = 0; % Mask out the background    
+    % --- Extract Properties ---
+    stats = regionprops(L, 'Area', 'Centroid', 'PixelIdxList', 'BoundingBox');
+    
+    % Filter out tiny noise that watershed might have created
+    stats = stats([stats.Area] > 500);
+   
+    numObjects = max(L(:));
+    for i = 1:numObjects
+        mask = (L == i);
+        instanceMap(mask) = currentID;
+        currentID = currentID + 1;
+    end
+end
+subplot(2,2,3);
 
+imshow(label2rgb(instanceMap))
+title('Object Detection')
+
+
+% X_layer = pointCloud.Location(:,:,1);
+% Y_layer = pointCloud.Location(:,:,2);
+% Z_layer = pointCloud.Location(:,:,3);
+% 
 
 
 % figure;

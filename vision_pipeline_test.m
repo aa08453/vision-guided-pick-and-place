@@ -91,7 +91,7 @@ elseif (read_flag == "test")
     end
     
 elseif (read_flag == "file")
-        i = 6;
+        i = 1;
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
         [segmented_rgb, sorted] = vision_pipeline(ptCloud);
         keepIdx = (sorted ~= "background") & (sorted ~= "grey");
