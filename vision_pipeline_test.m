@@ -70,7 +70,7 @@ elseif (read_flag == "test")
                ["red"]; 
                ["yellow"]; 
                ["red", "yellow"]; 
-               ["red"]}; 
+               ["blue"]}; 
     for i=1:5
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
         [segmented_rgb, sorted] = vision_pipeline(ptCloud);
@@ -89,7 +89,7 @@ elseif (read_flag == "test")
     end
     
 elseif (read_flag == "file")
-        i = 1;
+        i = 5;
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
         [segmented_rgb, sorted] = vision_pipeline(ptCloud);
 end

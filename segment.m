@@ -1,24 +1,23 @@
 function [segmented_rgb, Centers, numClusters] = segment(sliced_rgb)  
-    ds_factor = 1; 
-    plane_small = imresize(sliced_rgb, 1/ds_factor, 'nearest');
-    [rows_s, cols_s, ~] = size(plane_small);
+    lab_img = rgb2lab(sliced_rgb);
+    a = lab_img(:,:,2);
+    b = lab_img(:,:,3);
     
-    pixels_s = double(reshape(plane_small, [], 3));
+    % 2. Filter out the "black" background (near 0,0,0 in Lab)
+    mask = sum(sliced_rgb, 3) > 20; 
+    a_vals = a(mask);
+    b_vals = b(mask);
     
-    valid_mask = sum(pixels_s, 2) > 15; 
-    pixelData = pixels_s(valid_mask, :);
+    % 3. Generate a 2D Histogram (edges roughly -100 to 100)
+    edges = -110:2:110;
+    counts = histcounts2(a_vals, b_vals, edges, edges);
     
-    epsilon = 7;    % Search radius in RGB space
-    minpts = 400;   % Minimum pixels to form a cluster at 1/4 resolution
-    idx = dbscan(pixelData, epsilon, minpts);
-    
-    L_small = zeros(rows_s * cols_s, 1);
-    L_small(valid_mask) = idx;
-        
-    foundClusters = max(idx);
-    fprintf('DBSCAN found %d actual colored objects.\n', foundClusters);
-    
-    numClusters = foundClusters;
+    % 4. Smooth and Find Peaks
+    % Using imregionalmax or finding local maximums
+    counts_smoothed = imgaussfilt(counts, 1.5); 
+    peaks = imregionalmax(counts_smoothed);
+    numClusters = sum(peaks(:));  
+
     imshow(sliced_rgb);
     [segmented_rgb, Centers] = imsegkmeans(uint8(sliced_rgb), numClusters, numAttempts=3);
     % L = segmented_rgb;
