@@ -1,5 +1,5 @@
 clc; clear all; close all;
-read_flag = "files" % or file 
+read_flag = "file" % or file 
 
 if (read_flag == "stream")
 
@@ -63,14 +63,14 @@ if (read_flag == "stream")
     % Create a point cloud
     ptCloud = pcfromdepth(depth_frame,1/depth_scaling,intrinsics,ColorImage=color_frame);
     display(ptCloud)
-elseif (read_flag == "files")
+elseif (read_flag == "test")
     % ptCloud = pcread("ptCloud.pcd")
     
     desired = {["red"]; 
                ["red"]; 
                ["yellow"]; 
                ["red", "yellow"]; 
-               ["blue", "green"]}; % Added 5th example to match loop
+               ["red"]}; 
     for i=1:5
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
         [segmented_rgb, sorted] = vision_pipeline(ptCloud);
