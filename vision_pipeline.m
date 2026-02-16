@@ -1,4 +1,9 @@
 clc; clear all; close all;
+
+read_flag = "file" % or file 
+
+if (read_flag == "stream")
+
     % Make Pipeline object to manage streaming
     pipe = realsense.pipeline();
     
@@ -59,82 +64,17 @@ clc; clear all; close all;
     % Create a point cloud
     ptCloud = pcfromdepth(depth_frame,1/depth_scaling,intrinsics,ColorImage=color_frame);
     display(ptCloud)
-    
+elseif (read_flag == "file")
+    % ptCloud = pcread("ptCloud.pcd")
+    ptCloud = pcread("ptCloudMaslaExample5.pcd")
+end
+
+
 rgb = (ptCloud.Color);
 
 figure;
 imshow(rgb, [])
 title("RGB Image")
-
-
-% Lab = rgb2lab(rgb);
-% figure;
-% histogram(Lab(:,:,2)); %a
-% title("Lab a histogram")
-% xlabel("a");
-% ylabel("freq");
-% axis tight;
-% 
-% imshow(Lab(:,:,2),[]);
-% title("Lab a space")
-% 
-% histogram(Lab(:,:,3)); %b
-% title("Lab b histogram")
-% xlabel("b");
-% ylabel("freq");
-% axis tight;
-% 
-% imshow(Lab(:,:,3), []);
-% title("Lab a histogram")
-% 
-% lightMask = (Lab(:,:,2) < -2);
-% imshow(lightMask, []);
-% title("Lab b space with masking")
-
-
-% bwMask = bwareaopen(bwMask, 100);
-% bwMask = imfill(bw2, 'holes');
-% 
-% X = ptCloud.Location(:,:,1);
-% Y = ptCloud.Location(:,:,2);
-% Z = ptCloud.Location(:,:,3);
-% 
-% lightpoints = [X(), Y(), Z()];
-
-
-% pcshow(pointCloud(lightpoints), "VerticalAxisDir","Down");
-
-% pixel_labels = segment_cluster(rgb, 3);
-% overlay = labeloverlay(rgb, pixel_labels);
-% display = label2rgb(pixel_labels, 'jet');
-% imshow(display);
-
-
-% mask = (pixel_labels == 3);
-% 
-% X = ptCloud.Location(:,:,1);
-% Y = ptCloud.Location(:,:,2);
-% Z = ptCloud.Location(:,:,3);
-% 
-% points_xyz = [ ...
-%     X(mask), ...
-%     Y(mask), ...
-%     Z(mask) ...
-% ];
-
-
-
-% imshow(mask, []);
-
-figure;
-pcshow(ptCloud, "VerticalAxisDir", "Down");
-pcwrite(ptCloud,'ptCloudMaslaExample5.pcd','Encoding','ascii');
-title("Original Point Cloud")
-
-% % 
-% figure;
-% pc = pointCloud(points_xyz);
-% pcshow(pc, "VerticalAxisDir","Down");
 
 maxDistance = 0.02; % 2 cm
 referenceVector = [0, 0, 1]; % z axis
@@ -151,13 +91,36 @@ for k = 1:length(outlierIndices)
     plane1_new(row(k), col(k), :) = uint8(ptCloud.Color(row(k), col(k), :));
 end
 
-% remainPtCloud = select(ptCloud,outlierIndices);
+ds_factor = 1; 
+plane_small = imresize(plane1_new, 1/ds_factor, 'nearest');
+[rows_s, cols_s, ~] = size(plane_small);
 
-% figure;
-% pcshow(remainPtCloud, "VerticalAxisDir", "Down")
-% title("Cubes without Plane")
+% --- 2. Reshape to Nx3 (List of RGB pixels) ---
+pixels_s = double(reshape(plane_small, [], 3));
+
+% --- 3. Filter Background (Crucial Step) ---
+% We only want to cluster pixels that aren't black (the table/background)
+valid_mask = sum(pixels_s, 2) > 15; % Adjust threshold if cubes are very dark
+pixelData = pixels_s(valid_mask, :);
+
+% --- 4. Run DBSCAN on Color Data ---
+epsilon = 8;    % Search radius in RGB space
+minpts = 100;   % Minimum pixels to form a cluster at 1/4 resolution
+idx = dbscan(pixelData, epsilon, minpts);
+
+% --- 5. Map Labels Back to Image Shape ---
+L_small = zeros(rows_s * cols_s, 1);
+L_small(valid_mask) = idx;
+L_small_mat = reshape(L_small, [rows_s, cols_s]);
+
+% --- 6. Upscale to Original Resolution ---
+plane1_seg = imresize(L_small_mat, [480, 640], 'nearest');
+
+foundClusters = max(idx);
+fprintf('DBSCAN found %d actual colored objects.\n', foundClusters);
+
 numColors = 4;
-numClusters = 6;
+numClusters = foundClusters;
 imshow(plane1_new);
 [plane1_seg, Centers] = imsegkmeans(plane1_new, numClusters, numAttempts=3);
 L = plane1_seg;
@@ -332,164 +295,3 @@ for c = 1:4
     
     hold off
 end
-
-
-
-%==============================================================
-% for label_i = 1:numClusters
-%     losses = zeros(1,numLabels);
-%     for label_known = 1:numLabels
-%         potential_label = iterations(label_known,:);
-%         % Need to pull the whole mask 
-%         segmented_mask = (plane1_seg(:,:) == label_known);
-%         plane1_masked = uint8(segmented_mask) .* uint8(plane1_new);
-%         losses(1,label_known) = mean(sqrt(plane1_masked.^2 - potential_label.^2));
-%     end
-%     [min, idx] = min(losses);
-%     color = my_labels(idx);
-%     display(color)
-% end
-% 
-
-% for label_i = 1:numClusters
-%     % Get mask of this cluster
-%     segmented_mask = (plane1_seg == label_i);
-%     % Extract RGB pixels of that cluster
-%     pixels = plane1_new(repmat(segmented_mask,[1 1 3]));
-%     pixels = reshape(pixels, [], 3);
-%     % Convert to double for math
-%     pixels = double(pixels);
-%     % Compute mean color of cluster
-%     mean_color = mean(pixels, 1);
-%     losses = zeros(1, size(iterations,1));
-%     % Compare against known colors
-%     for label_known = 1:size(iterations,1)
-%         ref = iterations(label_known,:);
-%         % Euclidean distance
-%         losses(label_known) = norm(mean_color - ref);
-%     end
-%     [~, idx] = min(losses);
-%     fprintf("Cluster %d is %s\n", label_i, my_labels(idx));
-% 
-% end
-
-
-
-
-
-
-
-
-% impixelinfo(plane1_new)
-
-% mask_re;
-% mask_yellow = (H > 0.12 & H < 0.18) & S > 0.4 & V > 0.3;
-% mask_green = (H > 0.25 & H < 0.45) & S > 0.4 & V > 0.3;
-% mask_blue = (H > 0.55 & H < 0.75) & S > 0.4 & V > 0.3;
-% 
-% mask_red    = bwareaopen(mask_red, 200);
-% mask_green  = bwareaopen(mask_green, 200);
-% mask_blue   = bwareaopen(mask_blue, 200);
-% mask_yellow = bwareaopen(mask_yellow, 200);
-
-
-% 
-% regionLabels = plane1_seg(mask_red);
-% dominantCluster = mode(regionLabels);
-
-
-% plane1 = select(ptCloud,inlierIndices);
-% pcshow(plane1, "VerticalAxisDir", "Down")
-% title("Workspace plane")
-
-
-
-
-
-% 
-% imshow(Lab(:,:,3), []);
-% title("Lab a histogram")
-% 
-% lightMask = (Lab(:,:,2) < -2);
-% imshow(lightMask, []);
-% title("Lab b space with masking")
-
-
-% imshow(rgb_cubes, []);
-% 
-% planeModel = pcfitplane(ptCloud, 0.01);
-% inlierIdx = planeModel.InlierIndices;
-% 
-% nonPlaneMask = true(m*n,1);
-% nonPlaneMask(inlierIdx) = false;
-% nonPlaneMask = reshape(nonPlaneMask, m, n);
-
-% validMask = validMask & nonPlaneMask;
-
-
-
-
-
-
-
-
-
-
-
-% X = ptCloud.Location(:,:,1);
-% Y = ptCloud.Location(:,:,2);
-% Z = ptCloud.Location(:,:,3);
-% 
-% validMask = Z > 0 & ~isnan(Z); % getting valid depth values
-% 
-% rgb_double = im2double(rgb);
-% 
-% [m,n,~] = size(rgb_double); % ignore channels
-% pixels = reshape(rgb_double, m*n, 3);
-% 
-% % getting rgb values corresponding to correct Z
-% valid_pixels = pixels(validMask(:), :);
-% 
-% [idx_valid, C] = kmeans(valid_pixels, 7, 'Replicates', 3); % replicate = parallelize
-% 
-% pixel_labels(validMask(:)) = idx_valid;
-% 
-% pixel_labels = reshape(pixel_labels, m, n);
-% 
-% 
-% 
-% display = label2rgb(pixel_labels, 'jet');
-% imshow(display);
-% title("RGB Clustering")
-% 
-% 
-% mask = (pixel_labels == greenCluster);
-% 
-% points_xyz = [ ...
-%     X(mask), ...
-%     Y(mask), ...
-%     Z(mask) ...
-% ];
-% pc = pointCloud(points_xyz);
-% pcshow(pc, "VerticalAxisDir","Down");
-% title("RGB Masked Point Cloud")
-
-
-
-% hsv_img = rgb2hsv(rgb_double);
-% pixels = reshape(hsv_img, m*n, 3);
-% valid_pixels = pixels(validMask(:), 1:2);  % Use Hue + Saturation only
-% 
-% % [idx_valid, C] = kmeans(valid_pixels, 4, 'Replicates', 3); % replicate = parallelize
-% pixel_labels = segment_cluster(image_rgb, numColors, debug)
-% 
-% pixel_labels = zeros(m*n,1);
-% pixel_labels(validMask(:)) = idx_valid;
-% 
-% pixel_labels = reshape(pixel_labels, m, n);
-% 
-% display = label2rgb(pixel_labels, 'jet');
-% imshow(display);
-% title("HSV Clustering")
-
-
