@@ -1,5 +1,5 @@
 function [segmented_rgb, sortedLabels] = vision_pipeline(pointCloud)
-[sliced_rgb, params] = find_plane(pointCloud);
+[sliced_rgb, model] = find_plane(pointCloud);
 [segmented_rgb, Centers, numClusters] = segment(sliced_rgb); % Gives segment mask
 [mergedMasks, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb);
 
@@ -73,111 +73,64 @@ imshow(label2rgb(instanceMap))
 title('Object Detection')
 
 
-% X_layer = pointCloud.Location(:,:,1);
-% Y_layer = pointCloud.Location(:,:,2);
-% Z_layer = pointCloud.Location(:,:,3);
-% 
+CC = bwconncomp(instanceMap > 0);
 
+stats = regionprops("table", CC, ...
+    "Area",...
+    "MajorAxisLength",...
+    "MinorAxisLength", ...
+    "Orientation", ...
+    "PixelIdxList");
 
-% figure;
-% 
-% colorNames = ["Red","Green","Blue","Yellow"];
-% for c = 1:4
-% 
-%     binaryMask = segmented_colors(:,:,c) > 0;
-% 
-%     %s
-%     % 1. Fill small holes inside the cube
-%     binaryMask = imfill(binaryMask, 'holes');
-%     % 2. Remove tiny noise (anything smaller than 500 pixels)
-%     binaryMask = bwareaopen(binaryMask, 500); 
-%     % 3. Bridge small gaps between parts of the same cube
-%     se = strel('disk', 5);
-%     binaryMask = imclose(binaryMask, se);
-% 
-%     CC = bwconncomp(binaryMask);
-% 
-%     stats = regionprops("table", CC, ...
-%         "Area", "Centroid", "MajorAxisLength", ...
-%         "MinorAxisLength", "Orientation", "PixelIdxList"); %s
-% 
-%     %s
-%     if isempty(stats)
-%         fprintf('No object found for color: %s\n', colorNames(c));
-%         continue; 
-%     end
-% 
-%     %s
-%     % 1 co-ordinate per color
-%     [~, largestIdx] = max(stats.Area);
-%     pixelIdx = stats.PixelIdxList{largestIdx};
-% 
-%     subplot(2,2,c)
-%     imshow(binaryMask)
-%     title(colorNames(c))
-%     hold on
-% 
-%     for k = 1:height(stats)
-% 
-%         % Extract region properties
-%         x = stats.Centroid(k,1);
-%         y = stats.Centroid(k,2);
-%         major = stats.MajorAxisLength(k);
-%         minor = stats.MinorAxisLength(k);
-%         theta = deg2rad(-stats.Orientation(k));
-% 
-%         % ----- Centroid -----
-%         plot(x, y, 'go', 'MarkerSize', 6, 'LineWidth', 2);
-% 
-%         % ----- Major axis -----
-%         dx_major = (major/2) * cos(theta);
-%         dy_major = (major/2) * sin(theta);
-% 
-%         plot([x - dx_major, x + dx_major], ...
-%              [y - dy_major, y + dy_major], ...
-%              'r', 'LineWidth', 2);
-% 
-%         % ----- Minor axis -----
-%         dx_minor = (minor/2) * -sin(theta);
-%         dy_minor = (minor/2) * cos(theta);
-% 
-%         plot([x - dx_minor, x + dx_minor], ...
-%              [y - dy_minor, y + dy_minor], ...
-%              'b', 'LineWidth', 2);
-%         %s
-%         pixelIdx = stats.PixelIdxList{k};
-% 
-%         blobX = X_layer(pixelIdx);
-%         blobY = Y_layer(pixelIdx);
-%         blobZ = Z_layer(pixelIdx);
-% 
-%         % Filter out NaNs (invalid depth points)
-%         validPts = ~isnan(blobX) & ~isnan(blobY) & ~isnan(blobZ);
-%         if sum(validPts) > 0
-%             % Calculate robust 3D centroid (Median is safer than Mean for depth)
-%             objX = median(blobX(validPts));
-%             objY = median(blobY(validPts));
-%             objZ_cube = median(blobZ(validPts)); % This is depth from camera
-% 
-%             % 1. Get plane parameters [A, B, C, D]
-%             parameters = params.Parameters;
-%             A = parameters(1); B = parameters(2); C = parameters(3); D = parameters(4);
-% 
-%             % 2. Calculate the Z-value of the plane at the cube's (X,Y) position
-%             % Formula: Ax + By + Cz + D = 0  =>  z = -(Ax + By + D) / C
-%             objZ_plane = -(A*objX + B*objY + D) / C;
-% 
-%             % 3. Calculate Height relative to the table
-%             % Height is (Depth to Table) - (Depth to Cube Top)
-%             cubeHeight = objZ_plane - objZ_cube;
-%             fprintf('  Cube %s:\n', colorNames(c));
-%             fprintf(' [%.3f, %.3f, %.3f, %.3f] \n', A,B,C,D);
-%             fprintf('  Camera-Relative (X, Y, Z): [%.3f, %.3f, %.3f] m\n', objX, objY, objZ_cube);
-%             fprintf('  Table Depth at this point: %.3f m\n', objZ_plane);
-%             fprintf('  Cube Height above Table:   %.3f m (approx %.1f cm)\n\n', cubeHeight, cubeHeight*100);
-%         end
-% 
-%     end
-% 
-%     hold off
+figure;
+
+% individual objects
+for k = 1:height(stats)
+    % Extract the individual object mask
+    objMask = (instanceMap == k);
+
+    pts = pointCloud.Location;
+    objPoints = pts(repmat(objMask, [1 1 3]));  
+    objPoints = reshape(objPoints, [], 3);
+    objPoints = objPoints(~any(isnan(objPoints),2), :); % remove NaNs
+    centroid = mean(objPoints, 1);   % [x y z]
+    stats = regionprops(objMask, 'Orientation');
+    yaw = deg2rad(stats.Orientation);   % radians
+    pose.yaw = yaw;
+    Rz = [ cos(yaw) -sin(yaw) 0;
+       sin(yaw)  cos(yaw) 0;
+       0         0        1 ];
+
+    pose.R = Rz;
+    pose.d = centroid;
+    T = [pose.R pose.d';
+        [0 0 0] 1];
+    display(T);
+    pcshow(pointCloud, "VerticalAxisDir", "Up");
+    hold on;
+    axis equal;
+    xlabel('X'); ylabel('Y'); zlabel('Z');
+        
+    p = pose.d;   % [X Y Z]
+    
+    plot3(p(1), p(2), p(3), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
+        
+    L = 0.05;  % axis length (meters or point cloud units)
+    
+    x_axis = pose.R * [L;0;0];
+    y_axis = pose.R * [0;L;0];
+    z_axis = pose.R * [0;0;L];
+    
+    quiver3(p(1), p(2), p(3), x_axis(1), x_axis(2), x_axis(3), ...
+        'r', 'LineWidth', 2, 'MaxHeadSize', 0.5);
+    
+    quiver3(p(1), p(2), p(3), y_axis(1), y_axis(2), y_axis(3), ...
+        'g', 'LineWidth', 2, 'MaxHeadSize', 0.5);
+    
+    quiver3(p(1), p(2), p(3), z_axis(1), z_axis(2), z_axis(3), ...
+        'b', 'LineWidth', 2, 'MaxHeadSize', 0.5);
+end
+
+hold off
+
 end

@@ -1,4 +1,4 @@
-function [sliced_rgb, params] = find_plane(pointCloud)
+function [sliced_rgb, model] = find_plane(pointCloud)
     % figure;
     % imshow(rgb, [])
     % title("RGB Image")
@@ -7,7 +7,7 @@ function [sliced_rgb, params] = find_plane(pointCloud)
     referenceVector = [0, 0, 1]; % z axis
     maxAngularDistance = 5; % degrees
     
-    [params,inlierIndices,outlierIndices] = pcfitplane(pointCloud,...
+    [model,~,outlierIndices] = pcfitplane(pointCloud,...
                 maxDistance,referenceVector,maxAngularDistance);
     
     figure;
