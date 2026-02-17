@@ -1,6 +1,5 @@
 function [segmented_rgb, sortedLabels] = vision_pipeline(pointCloud)
 [sliced_rgb, model] = find_plane(pointCloud);
-figure;
 subplot(3,2,1);
 imshow(sliced_rgb);
 title('Original Image');
@@ -83,12 +82,12 @@ title('Labelled image')
 
 CC = bwconncomp(instanceMap > 0);
 
-stats = regionprops("table", CC, ...
+initStats = regionprops("table", CC, ...
     "Area",...
     "MajorAxisLength",...
     "MinorAxisLength", ...
     "Orientation", ...
-    "PixelIdxList");
+    "PixelIdxList","Centroid");
 
 % subplot(2,2,4);
 % imshow(label2rgb(instanceMap))
@@ -102,14 +101,17 @@ hold on;
 title('Object Detection with Axes');
 
 % Re-calculate stats to ensure we have Centroid and axes lengths
-stats = regionprops(instanceMap, 'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
+% initStats = regionprops(instanceMap, 'Area', 'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
+idx = [initStats.Area] > 50;
+stats = initStats(idx,:);
 
-for k = 1:length(stats)
+
+for k = 1:height(stats)
     % Get individual object properties
-    beam = stats(k).MajorAxisLength / 2;
-    crossbeam = stats(k).MinorAxisLength / 2;
-    avg = stats(k).Centroid;
-    angle = stats(k).Orientation; % In degrees
+    beam = stats(k,:).MajorAxisLength / 2;
+    crossbeam = stats(k,:).MinorAxisLength / 2;
+    avg = stats(k,:).Centroid;
+    angle = stats(k,:).Orientation; % In degrees
     
     % Convert orientation to radians for trigonometric functions
     cosPhi = cosd(angle);
@@ -139,8 +141,7 @@ hold off;
 
 
 
-figure;
-
+subplot(3,2,6)
 % individual objects
 for k = 1:height(stats)
     % Extract the individual object mask
@@ -151,8 +152,9 @@ for k = 1:height(stats)
     objPoints = reshape(objPoints, [], 3);
     objPoints = objPoints(~any(isnan(objPoints),2), :); % remove NaNs
     centroid = mean(objPoints, 1);   % [x y z]
-    stats = regionprops(objMask, 'Orientation');
-    yaw = deg2rad(stats.Orientation);   % radians
+    stats = regionprops(objMask, 'Orientation', 'Area');
+    [~, maxIdx] = max([stats.Area]);
+    yaw = -deg2rad(stats(maxIdx).Orientation);   % radians
     pose.yaw = yaw;
     Rz = [ cos(yaw) -sin(yaw) 0;
        sin(yaw)  cos(yaw) 0;
@@ -187,6 +189,11 @@ for k = 1:height(stats)
     quiver3(p(1), p(2), p(3), z_axis(1), z_axis(2), z_axis(3), ...
         'b', 'LineWidth', 2, 'MaxHeadSize', 0.5);
 end
+
+set(gca, 'ZDir', 'reverse');
+xlim([-0.2, 0.2]); 
+ylim([-0.3, 0.3]);
+zlim([0.4, 0.6]); % Focus on the first 30cm of depth
 
 hold off
 
