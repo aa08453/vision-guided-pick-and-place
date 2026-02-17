@@ -1,5 +1,5 @@
 clc; clear all; close all;
-read_flag = "test" % stream | file | test
+read_flag = "stream" % stream | file | test
 desired = {["red"]; 
            ["red"]; 
            ["yellow"]; 
@@ -70,6 +70,7 @@ if (read_flag == "stream")
     % Create a point cloud
     ptCloud = pcfromdepth(depth_frame,1/depth_scaling,intrinsics,ColorImage=color_frame);
     display(ptCloud)
+    imshow(ptCloud.Color)
 elseif (read_flag == "test")
     % ptCloud = pcread("ptCloud.pcd")
     
