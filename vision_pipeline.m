@@ -24,32 +24,42 @@ title('Collapsed 2D Label Map');
 instanceMap = zeros(480, 640);
 currentID = 1;
 
+lab_img = rgb2lab(sliced_rgb);
+a_chan = lab_img(:,:,2);
+b_chan = lab_img(:,:,3);
+
+
+
 for c = 1:4
     
     bw = mergedMasks(:,:,c);
     if ~any(bw(:)), continue; end
     
-    % 1. Clean the mask (fills small holes that create fake peaks)
-    bw = imclose(bw, strel('disk', 5));
-    bw = imfill(bw, 'holes');
+    % 2. Select the most relevant color channel for the gradient
+    % Yellow and Blue are most active in 'b', Red and Green in 'a'
+    if c == 1 || c == 4 % Yellow or Blue
+        target_chan = b_chan;
+    else % Red or Green
+        target_chan = a_chan;
+    end
     
-    % 2. Compute Distance Transform
+    % 3. Calculate Gradient on the COLOR channel, not just intensity
+    % This finds where "yellow-ness" or "blue-ness" changes
+    [Gmag, ~] = imgradient(target_chan);
+    
+    % 4. Combine with the original intensity gradient to find shadows
+    total_gradient = Gmag + imgradient(rgb2gray(sliced_rgb));
+    
+    % 5. Marker-controlled watershed
     D = -bwdist(~bw);
+    % We use 'h-minima' to suppress noise. Increase 2.5 if still over-segmenting.
+    markers = imextendedmin(D, 2.5); 
+    W = imimposemin(total_gradient, markers);
     
-    % 3. CRITICAL: Suppress shallow local minima (Noise Filtering)
-    % This "flattens" the bottom of the distance transform so only
-    % significant peaks remain. Adjust '1.5' if it's still too sensitive.
-    D_modified = imimposemin(D, imextendedmin(D, 1.5));
+    L = watershed(W);
+    L(~bw) = 0;
     
-    % 4. Run Watershed on the modified distance transform
-    L = watershed(D_modified);
-    L(~bw) = 0; % Mask out the background    
-    % --- Extract Properties ---
-    stats = regionprops(L, 'Area', 'Centroid', 'PixelIdxList', 'BoundingBox');
     
-    % Filter out tiny noise that watershed might have created
-    stats = stats([stats.Area] > 500);
-   
     numObjects = max(L(:));
     for i = 1:numObjects
         mask = (L == i);
