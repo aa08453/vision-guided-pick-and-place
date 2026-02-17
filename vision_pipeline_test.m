@@ -1,5 +1,5 @@
 clc; clear all; close all;
-read_flag = "stream" % stream | file | test
+read_flag = "file" % stream | file | test
 desired = {["red"]; 
            ["red"]; 
            ["yellow"]; 
@@ -93,7 +93,13 @@ elseif (read_flag == "test")
     
 elseif (read_flag == "file")
         i = 1;
+        % ptCloud = pcread(sprintf("ptCloud%i.ply", i));
+        % newLocation = reshape(ptCloud.Location, [480, 640, 3]);
+        % newColor = reshape(ptCloud.Color, [480, 640, 3]);
+        % ptCloud = pointCloud(newLocation, 'Color', newColor);
+        
         ptCloud = pcread(sprintf("ptCloudMaslaExample%i.pcd", i));
+        
         [segmented_rgb, sorted] = vision_pipeline(ptCloud);
         keepIdx = (sorted ~= "background") & (sorted ~= "grey");
         recieved = sorted(keepIdx);

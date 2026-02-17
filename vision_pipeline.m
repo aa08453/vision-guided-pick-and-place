@@ -1,25 +1,33 @@
 function [segmented_rgb, sortedLabels] = vision_pipeline(pointCloud)
 [sliced_rgb, model] = find_plane(pointCloud);
-[segmented_rgb, Centers, numClusters] = segment(sliced_rgb); % Gives segment mask
+figure;
+subplot(3,2,1);
+imshow(sliced_rgb);
+title('Original Image');
+
+
+numClusters = 6;
+[segmented_rgb, Centers] = segment(sliced_rgb, numClusters); % Gives segment mask
 [mergedMasks, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb);
 
 
 weights = reshape([1, 2, 3, 4], [1, 1, 4]);
 mergedSegments = sum(double(mergedMasks) .* weights, 3);
-
+subplot(3,2,2);
+imshow(mergedSegments);
+title('Segmented image')
 
 % Map 1->Yellow, 2->Red, 3->Green, 4->Blue
 customColormap = [1 1 0;  % 1: Yellow
                   1 0 0;  % 2: Red
                   0 1 0;  % 3: Green
                   0 0 1]; % 4: Blue
+
+
 rgbLabelImage = label2rgb(mergedSegments, customColormap, 'k'); % 'k' for black background
-subplot(2,2,1);
+subplot(3,2,3);
 imshow(rgbLabelImage);
-title('Original image')
-subplot(2,2,2);
-imshow(sliced_rgb);
-title('Collapsed 2D Label Map');
+title('Segmented and merged image')
 
 instanceMap = zeros(480, 640);
 currentID = 1;
@@ -67,10 +75,10 @@ for c = 1:4
         currentID = currentID + 1;
     end
 end
-subplot(2,2,3);
+subplot(3,2,4);
 
 imshow(label2rgb(instanceMap))
-title('Object Detection')
+title('Labelled image')
 
 
 CC = bwconncomp(instanceMap > 0);
@@ -81,6 +89,55 @@ stats = regionprops("table", CC, ...
     "MinorAxisLength", ...
     "Orientation", ...
     "PixelIdxList");
+
+% subplot(2,2,4);
+% imshow(label2rgb(instanceMap))
+
+% Need help in plotting the major and minor axes over the images here
+
+
+subplot(3,2,5);
+imshow(label2rgb(instanceMap, 'jet', 'k'));
+hold on;
+title('Object Detection with Axes');
+
+% Re-calculate stats to ensure we have Centroid and axes lengths
+stats = regionprops(instanceMap, 'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
+
+for k = 1:length(stats)
+    % Get individual object properties
+    beam = stats(k).MajorAxisLength / 2;
+    crossbeam = stats(k).MinorAxisLength / 2;
+    avg = stats(k).Centroid;
+    angle = stats(k).Orientation; % In degrees
+    
+    % Convert orientation to radians for trigonometric functions
+    cosPhi = cosd(angle);
+    sinPhi = sind(angle);
+
+    % Calculate endpoints for Major Axis
+    x1 = avg(1) - beam * cosPhi;
+    y1 = avg(2) + beam * sinPhi;
+    x2 = avg(1) + beam * cosPhi;
+    y2 = avg(2) - beam * sinPhi;
+
+    % Calculate endpoints for Minor Axis
+    x3 = avg(1) + crossbeam * sinPhi;
+    y3 = avg(2) + crossbeam * cosPhi;
+    x4 = avg(1) - crossbeam * sinPhi;
+    y4 = avg(2) - crossbeam * cosPhi;
+
+    % Plot Major Axis (Red)
+    plot([x1, x2], [y1, y2], 'r', 'LineWidth', 2);
+    % Plot Minor Axis (Blue)
+    plot([x3, x4], [y3, y4], 'b', 'LineWidth', 2);
+    % Plot Centroid
+    plot(avg(1), avg(2), 'y+', 'MarkerSize', 10, 'LineWidth', 2);
+end
+hold off;
+
+
+
 
 figure;
 
