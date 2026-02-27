@@ -1,5 +1,5 @@
 clc; clear all; close all;
-read_flag = "file" % stream | file | test
+read_flag = "test" % stream | file | test
 desired = {["red"]; 
            ["red"]; 
            ["yellow"]; 
