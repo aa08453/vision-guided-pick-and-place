@@ -1,4 +1,4 @@
-function [T1, T2, T3, T4] = DH(theta,d, a, alpha)
+function [T, Ts] = DH(theta,d, a, alpha)
 %UNTITLED2 Summary of this function goes here
 %   Detailed explanation goes here
 
@@ -23,14 +23,8 @@ for i=1:length(theta)
          0 sa ca d(i);
          0 0 0 1];
     T = T*T_;
-    Ts(:,:,i) = T;
+    Ts(:,:,i) = T_;
 end
-
-T1 = Ts(:,:,1);
-T2 = Ts(:,:,2);
-T3 = Ts(:,:,3);
-T4 = Ts(:,:,4);
-
 
 
 end
