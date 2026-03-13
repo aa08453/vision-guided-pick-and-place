@@ -1,0 +1,49 @@
+function [T1, T2, T3, T4] = POE(theta)
+%UNTITLED4 Summary of this function goes here
+%   Detailed explanation goes here
+%TODO: Add l1,l2,l3
+
+if isa(theta, 'sym') 
+    syms l1 l2 l3 l4;
+    M = sym(eye(4));
+
+else
+    l1 = 13.7; % IN CM
+    l2 = 10.5;
+    l3 = 10.5;
+    l4 = 11.0;
+    M = eye(4);
+
+
+end
+
+
+
+M(1:3,4) = [l1+l2+l3+l4,0,0]';
+
+w1 = [0 0 1]';
+w2 = [0 1 0]';
+w3 = [0 1 0]'; 
+w4 = [0 1 0]';
+
+q1 = [0 0 l1]';
+q2 = [0 0 l1 + l2]';
+q3 = [0 0 l1 + l2 + l3]';
+q4 = [0 0 l1 + l2 + l3 + l4]';
+
+S1 = [w1; cross(w1, -q1)];
+S2 = [w2; cross(w2, -q2)];
+S3 = [w3; cross(w3, -q3)];
+S4 = [w4; cross(w4, -q4)];
+
+exp1 = exp_mat_homogenous(S1, theta(1));
+exp2 = exp_mat_homogenous(S2, theta(2));
+exp3 = exp_mat_homogenous(S3, theta(3));
+exp4 = exp_mat_homogenous(S4, theta(4));
+
+T4 = exp4 * M;
+T3 = exp3 * T4;
+T2 = exp2 * T3;
+T1 = exp1 * T2;
+
+end
