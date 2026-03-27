@@ -1,10 +1,10 @@
 function T = POE(theta)
 %UNTITLED4 Summary of this function goes here
 %   Detailed explanation goes here
-%TODO: Add l1,l2,l3
-l1 = 1;
-l2 = 1;
-l3 = 1;
+%TODO: Add l1,l2,l3 actual lengths
+l1 = 13.7;
+l2 = 10.5;
+l3 = 10.5;
 
 M = eye(4);
 M(3,3) = l1+l2+l3;
