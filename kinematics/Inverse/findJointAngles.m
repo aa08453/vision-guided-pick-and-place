@@ -1,7 +1,7 @@
 function [theta1, theta2, theta3, theta4] = findJointAngles(x,y,z, phi)
     d1 = 13.7; a2 = 10.5; a3 = 10.5; a4 = 11;
-    theta1.a = arctan2(y, x);
-    theta1.b = arctan(-y, -x);
+    theta1.a = atan2(y, x);
+    theta1.b = atan2(-y, -x);
 
     x_bar = x/cos(theta1.a) - a4 * cos(phi);
     y_bar = y/sin(theta1.a) - a4 * cos(phi);
@@ -9,8 +9,8 @@ function [theta1, theta2, theta3, theta4] = findJointAngles(x,y,z, phi)
 
     u = (x_bar^2 + z_bar^2 -a2^2 - a3^2) / (2 * a2 * a3);
 
-    theta3.a = arctan2(sqrt(1-u^2), u);
-    theta3.b = arctan2(-sqrt(1-u^2), u);
+    theta3.a = atan2(sqrt(1-u^2), u);
+    theta3.b = atan2(-sqrt(1-u^2), u);
 
    
     denom = (a2^2 + 2 * a2 * a3 * u + a3^2);
