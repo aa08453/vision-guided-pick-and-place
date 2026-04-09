@@ -190,6 +190,7 @@ end
 
 %% Best configuration
 
+
 initialJoints = [0, 0, 0, 0];
 x = 1;
 y = 0;
@@ -225,3 +226,15 @@ ax.XLim = ax.XLim * 2;
 ax.YLim = ax.YLim * 2;
 ax.ZLim = ax.ZLim * 2;       
 
+N = 20;
+figure;
+t = linspace(0, 1, N);
+figure;
+for k = 1:N
+    config_k = initialJoints + t(k) * (bestConfig - initialJoints);
+    show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
+    axis tight;
+    view(45, 30);
+    zlim([0, 40]);
+    drawnow;
+end
