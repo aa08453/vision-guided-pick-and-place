@@ -29,14 +29,28 @@ robot = rigidBodyTree;
 % 4. Use addBody to attach the body to the rigid body tree.
 bodies = cell(numJoints,1);
 joints = cell(numJoints,1);
+
+lengths = [13.7, 10.5,10.5, 11];
+
+
 for i = 1:numJoints
     bodies{i} = rigidBody(['body' num2str(i)]);
     joints{i} = rigidBodyJoint(['jnt' num2str(i)],"revolute");
     setFixedTransform(joints{i},dhparams(i,:),"dh");
     bodies{i}.Joint = joints{i};
-    if i == 1 % Add first body to base
+
+    if i == 1
+        % First link extends along Z
+        % tform = trvec2tform([0, 0, lengths(i)/2]);
+
+        tform = axang2tform([1 0 0 pi/2]) * trvec2tform([0, 0, lengths(i)/2]);
+
+        addCollision(bodies{i}, "cylinder", [0.5, lengths(i)], tform);
         addBody(robot,bodies{i},"base")
-    else % Add current body to previous body by name
+    else
+        % Remaining links extend along X
+        tform = trvec2tform([-lengths(i)/2, 0, 0]) * axang2tform([0 1 0 pi/2]);
+        addCollision(bodies{i}, "cylinder", [0.5, lengths(i)], tform);
         addBody(robot,bodies{i},bodies{i-1}.Name)
     end
 end
@@ -77,7 +91,7 @@ tolerance = 1e-3;
 num_correct = 0;
 for i=1:length(configs)
     subplot(2,2,i);
-    show(robot, convertForPlot(configs(i,:), robot ));
+    show(robot, convertForPlot(configs(i,:), robot ), 'Collisions', 'on', 'Visuals', 'off');
     [x_obtained,y_obtained,z_obtained, R_obtained] = pincherFK(configs(i,:), 0);
     
     p_obtained = [x_obtained; y_obtained; z_obtained;];
