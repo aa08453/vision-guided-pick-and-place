@@ -18,6 +18,7 @@ numJoints = size(dhparams,1);
 
 % Create a rigid body tree object.
 robot = rigidBodyTree;
+robot.DataFormat = 'row';
 
 % Create a model of the robot using DH parameters.
 % Create a cell array for the rigid body object, and another for the joint 
@@ -91,7 +92,7 @@ tolerance = 1e-3;
 num_correct = 0;
 for i=1:length(configs)
     subplot(2,2,i);
-    show(robot, convertForPlot(configs(i,:), robot ), 'Collisions', 'on', 'Visuals', 'off');
+    show(robot, configs(i,:), 'Collisions', 'on', 'Visuals', 'off');
     [x_obtained,y_obtained,z_obtained, R_obtained] = pincherFK(configs(i,:), 0);
     
     p_obtained = [x_obtained; y_obtained; z_obtained;];
@@ -134,12 +135,93 @@ fprintf("%d/4 correct solutions\n", num_correct)
 
 
 
+%% Check Collisions 
 
-%% Helpers
-function [plottableConfig] = convertForPlot(config, robot)
-    plottableConfig = homeConfiguration(robot);
-    for i = 1:length(config)
-        plottableConfig(i).JointPosition = config(i);
+initialJoints = [0, 0, 0, 0];
+x = 1;
+y = 0;
+z = 20;
+phi = 0;
+
+config = findJointAngles(x, y, z, phi);
+figure; 
+show(robot, initialJoints , 'Collisions', 'on', 'Visuals', 'off');
+title('Initial');
+zlim([0,30])
+view(45, 30)
+
+
+
+
+for i=1:length(config)
+    [collision, collision_config] = checkSelfCollision(robot, initialJoints, config(i,:));
+    if (collision)
+        figure;
+        subplot(2,1,1);
+        show(robot, collision_config, 'Collisions', 'on', 'Visuals', 'off');
+        title('Collision point');
+        zlim([0,30])
+        view(45, 30)
+        ax = gca;
+        axis tight;
+        ax.XLim = ax.XLim * 2;
+        ax.YLim = ax.YLim * 2;
+        ax.ZLim = ax.ZLim * 2;       
+
+
+        subplot(2,1,2);
+        show(robot, configs(i,:), 'Collisions', 'on', 'Visuals', 'off');
+        title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
+            configs(i,1), configs(i,2), configs(i,3), configs(i,4)));
+        zlim([0,30])
+        view(45, 30)
+        ax = gca;
+        axis tight;
+        ax.XLim = ax.XLim * 2;
+        ax.YLim = ax.YLim * 2;
+        ax.ZLim = ax.ZLim * 2;       
+
+        
+        
+        
+        sgtitle(sprintf('Config %d — collision detected', i));   
     end
-
 end
+
+%% Best configuration
+
+initialJoints = [0, 0, 0, 0];
+x = 1;
+y = 0;
+z = 20;
+phi = 0;
+
+bestConfig = findSolution(x,y,z,phi,robot,initialJoints);
+disp(bestConfig);
+figure;
+
+subplot(1,2,1);
+show(robot, initialJoints, 'Collisions', 'on', 'Visuals', 'off');
+title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
+    initialJoints(1), initialJoints(2), initialJoints(3), initialJoints(4)));
+zlim([0,30])
+view(45, 30)
+ax = gca;
+axis tight;
+ax.XLim = ax.XLim * 2;
+ax.YLim = ax.YLim * 2;
+ax.ZLim = ax.ZLim * 2;       
+
+
+subplot(1,2,2);
+show(robot, bestConfig, 'Collisions', 'on', 'Visuals', 'off');
+title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
+    bestConfig(1), bestConfig(2), bestConfig(3), bestConfig(4)));
+zlim([0,30])
+view(45, 30)
+ax = gca;
+axis tight;
+ax.XLim = ax.XLim * 2;
+ax.YLim = ax.YLim * 2;
+ax.ZLim = ax.ZLim * 2;       
+
