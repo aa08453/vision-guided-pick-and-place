@@ -5,12 +5,12 @@ function [bestConfig] = findSolution(x,y,z,phi,robot,currentConfig)
     for i = 1:size(configs,1)
         withinLimits = checkJointLimits(configs(i,:));
         if ~withinLimits
-            disp("Not within limits\n");
+            disp("Not within limits");
             continue
         end
         [collision, ~] = checkSelfCollision(robot, currentConfig, configs(i,:));
         if collision
-            disp("Collision detected\n");
+            disp("Collision detected");
 
             continue
         end
@@ -19,7 +19,7 @@ function [bestConfig] = findSolution(x,y,z,phi,robot,currentConfig)
     
     if isempty(validSolutions)
         bestConfig = [];
-        warning('No valid solutions found\n');
+        warning('No valid solutions found');
         return
     end
     

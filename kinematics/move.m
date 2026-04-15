@@ -65,10 +65,10 @@ show(robot);
 
 set(groot,'DefaultFigureWindowStyle','docked')
 
-x = 23;
+x = 10;
 y = 0;
 z = 25;
-phi = pi/4; % to determine phi from R or pass R
+phi = 0; % to determine phi from R or pass R
 
 
 
@@ -131,18 +131,14 @@ end
 fprintf("\n%d/4 correct solutions\n", num_correct)
 
 
-
-
 flag = "sim"; % or "sim"
 
 if flag == "real"
     arb = Arbotix('port', 'COM4', 'nservos', 5);
     initialJoints = getCurrentPose(arb);   
 elseif flag == "sim"
-    initialJoints = [0 0 40 90];
+    initialJoints = [0 0 0 0];
 end
-
-
 
 bestConfig = findSolution(x,y,z,phi,robot,initialJoints);
 disp(bestConfig);
@@ -171,41 +167,98 @@ ax = gca;
 axis tight;
 ax.XLim = ax.XLim * 2;
 ax.YLim = ax.YLim * 2;
-ax.ZLim = ax.ZLim * 2;      
+ax.ZLim = ax.ZLim * 2;   
 
-bestConfig = dh2servo(bestConfig, false);
 
-% if flag == "sim"
+bestConfigDH = findSolution(x, y, z, phi, robot, initialJoints);  % keep DH version
+bestConfigServo = dh2servo(bestConfigDH, false);                   % servo version for real robot
+
 N = 20;
 t = linspace(0, 1, N);
+[x0, y0, z0, ~] = pincherFK(initialJoints, false);
+fprintf("Initial position: x=%.2f, y=%.2f, z=%.2f\n", x0, y0, z0);
+
 figure(Name="Animating pincher movement");
-for k = 1:N
-    % if (checkJointLimits(bestConfig) == true)
-        config_k = initialJoints + t(k) * (bestConfig - initialJoints);
-        show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
-        axis tight;
-        view(45, 30);
-        zlim([0, 40]);
-        drawnow;
-    % end
-end
-if flag == "real"
-N = 20;
-t = linspace(0, 1, N);
-figure;
-for k = 1:N
-    % if (checkJointLimits(bestConfig) == true)
-        config_k = initialJoints + t(k) * (bestConfig - initialJoints);
-        c_config_k = [config_k 0];
-        arb.setpos([1 2 3 4 5], c_config_k, 600);
-        show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
-        axis tight;
-        view(45, 30);
-        zlim([0, 40]);
-        drawnow;
-    % end
+prevConfig = initialJoints;
 
+for k = 1:N
+    x_k = x0 + t(k) * (x - x0);
+    y_k = y0 + t(k) * (y - y0);
+    z_k = z0 + t(k) * (z - z0);
+
+    if ~isReachable(x_k, y_k, z_k, phi)
+        warning("Waypoint t=%.2f unreachable", t(k));
+        continue;
+    end
+
+    configs_k = findJointAngles(x_k, y_k, z_k, phi);
+
+    if isempty(configs_k)
+        warning("No IK solution at t=%.2f", t(k));
+        continue;
+    end
+
+    % Filter: z must stay above ground
+    validConfigs = [];
+    for i = 1:size(configs_k, 1)
+        if ~checkJointLimits(configs_k(i,:))
+            continue;
+        end
+        [~, ~, z_fk, ~] = pincherFK(configs_k(i,:), false);
+        if z_fk >= -1e-3
+            validConfigs = [validConfigs; configs_k(i,:)];
+        end
+    end
+
+    if isempty(validConfigs)
+        warning("No above-ground valid config at t=%.2f", t(k));
+        continue;
+    end
+
+    % Pick closest config to previous (ensures smooth motion)
+    dists = vecnorm(validConfigs - prevConfig, 2, 2);
+    [~, bestIdx] = min(dists);
+    config_k = validConfigs(bestIdx, :);
+    prevConfig = config_k;
+
+    % Visualize (config_k is in DH space, correct for show/FK)
+    [x_, y_, z_, ~] = pincherFK(config_k, false);
+    disp("x = " + x_ + ", y = " + y_ + ", z = " + z_);
+
+    show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
+    axis tight;
+    view(45, 30);
+    zlim([0, 40]);
+    drawnow;
 end
+
+% Real robot uses servo-space conversion
+if flag == "real"
+    N = 20;
+    t = linspace(0, 1, N);
+    figure;
+    prevConfig = initialJoints;
+    for k = 1:N
+        x_k = x0 + t(k) * (x - x0);
+        y_k = y0 + t(k) * (y - y0);
+        z_k = z0 + t(k) * (z - z0);
+
+        configs_k = findJointAngles(x_k, y_k, z_k, phi);
+        if isempty(configs_k), continue; end
+
+        dists = vecnorm(configs_k - prevConfig, 2, 2);
+        [~, bestIdx] = min(dists);
+        config_k = configs_k(bestIdx, :);
+        prevConfig = config_k;
+
+        % Convert to servo space only when commanding real robot
+        servo_k = dh2servo(config_k, false);
+        c_config_k = [servo_k 0];
+        arb.setpos([1 2 3 4 5], c_config_k, 600);
+
+        show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
+        axis tight; view(45, 30); zlim([0, 40]); drawnow;
+    end
 end
 
 
