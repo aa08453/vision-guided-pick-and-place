@@ -3,7 +3,8 @@ function dhJointAngles = servo2dh(jointAngles, deg)
 %   Detailed explanation goes here
 dhJointAngles = jointAngles;
 if (deg == true)
-dhJointAngles = deg2rad(dhJointAngles);
+    dhJointAngles = deg2rad(dhJointAngles);
 end
-dhJointAngles(2) = jointAngles(2) + deg2rad(90);
+
+dhJointAngles(2) = wrapToPi(jointAngles(2) + deg2rad(90));
 end

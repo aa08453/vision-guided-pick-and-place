@@ -1,5 +1,4 @@
-clc; close all; clear;
-
+clear; close all; clc;
 % This is a script to build the Phantom X Pincher in MATLAB based on its DH
 % parameters. It is based on MATLAB example available at 
 % https://www.mathworks.com/help/robotics/ug/build-manipulator-robot-using-kinematic-dh-parameters.html
@@ -64,21 +63,16 @@ showdetails(robot)
 figure(Name="Phantom X Pincher")
 show(robot);
 
-%% Forward Kinematics for different configurations
-% Enter joint angles in the matrix below in radians
-% configNow = [pi/3,pi/3,pi/3,pi/3];
-
-% Display robot in provided configuration
-% homeConfig = homeConfiguration(robot);
-% show(robot,config);
-
-
 set(groot,'DefaultFigureWindowStyle','docked')
 
-x = 10;
+x = 23;
 y = 0;
-z = 20;
-phi = 0;
+z = 25;
+phi = pi/4; % to determine phi from R or pass R
+
+
+
+
 p_command = [x; y; z;];
 
 Rz = @(a) [cos(a) -sin(a) 0; sin(a) cos(a) 0; 0 0 1;];
@@ -86,7 +80,7 @@ Ry = @(a) [cos(a) 0 sin(a); 0 1 0; -sin(a) 0 cos(a);];
 
 configs = findJointAngles(x,y,z,phi);
 
-figure;
+figure(Name="All Configs");
 
 tolerance = 1e-3;
 num_correct = 0;
@@ -104,7 +98,7 @@ for i=1:size(configs,1)
     R_planar = Rz_inv * R_obtained;
     phi_obtained = wrapToPi(atan2(R_planar(3,1), R_planar(1,1)));
     phi_err1 = wrapToPi(abs(angdiff(phi_obtained, phi)));
-    phi_err2 = wrapToPi(abs(angdiff(phi_obtained, phi + pi)));
+    phi_err2 = wrapToPi(abs(angdiff(phi_obtained, pi - phi)));
 
     % R_err = norm(R_obtained - R_command);
 
@@ -138,56 +132,84 @@ fprintf("\n%d/4 correct solutions\n", num_correct)
 
 
 
-%% Check Collisions 
 
-initialJoints = [0, 0, 0, 0];
-x = 10;
-y = 0;
-z = 10;
-phi = -pi/2;
+flag = "sim"; % or "sim"
 
-configs = findJointAngles(x, y, z, phi);
-figure; 
-show(robot, initialJoints , 'Collisions', 'on', 'Visuals', 'off');
-title('Initial');
-zlim([0,30])
-view(45, 30)
-
-
-
-
-for i=1:size(configs,1)
-    [collision, collision_config] = checkSelfCollision(robot, initialJoints, configs(i,:));
-    if (collision)
-        figure;
-        subplot(2,1,1);
-        show(robot, collision_config, 'Collisions', 'on', 'Visuals', 'off');
-        title('Collision point');
-        zlim([0,30])
-        view(45, 30)
-        ax = gca;
-        axis tight;
-        ax.XLim = ax.XLim * 2;
-        ax.YLim = ax.YLim * 2;
-        ax.ZLim = ax.ZLim * 2;       
-
-
-        subplot(2,1,2);
-        show(robot, configs(i,:), 'Collisions', 'on', 'Visuals', 'off');
-        title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
-            configs(i,1), configs(i,2), configs(i,3), configs(i,4)));
-        zlim([0,30])
-        view(45, 30)
-        ax = gca;
-        axis tight;
-        ax.XLim = ax.XLim * 2;
-        ax.YLim = ax.YLim * 2;
-        ax.ZLim = ax.ZLim * 2;       
-
-        
-        
-        
-        sgtitle(sprintf('Config %d — collision detected', i));   
-    end
+if flag == "real"
+    arb = Arbotix('port', 'COM4', 'nservos', 5);
+    initialJoints = getCurrentPose(arb);   
+elseif flag == "sim"
+    initialJoints = [0 0 40 90];
 end
 
+
+
+bestConfig = findSolution(x,y,z,phi,robot,initialJoints);
+disp(bestConfig);
+figure(Name="Best Config");
+
+subplot(1,2,1);
+show(robot, initialJoints, 'Collisions', 'on', 'Visuals', 'off');
+title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
+    initialJoints(1), initialJoints(2), initialJoints(3), initialJoints(4)));
+zlim([0,30])
+view(45, 30)
+ax = gca;
+axis tight;
+ax.XLim = ax.XLim * 2;
+ax.YLim = ax.YLim * 2;
+ax.ZLim = ax.ZLim * 2;       
+
+
+subplot(1,2,2);
+show(robot, bestConfig, 'Collisions', 'on', 'Visuals', 'off');
+title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
+    bestConfig(1), bestConfig(2), bestConfig(3), bestConfig(4)));
+zlim([0,30])
+view(45, 30)
+ax = gca;
+axis tight;
+ax.XLim = ax.XLim * 2;
+ax.YLim = ax.YLim * 2;
+ax.ZLim = ax.ZLim * 2;      
+
+bestConfig = dh2servo(bestConfig, false);
+
+% if flag == "sim"
+N = 20;
+t = linspace(0, 1, N);
+figure(Name="Animating pincher movement");
+for k = 1:N
+    % if (checkJointLimits(bestConfig) == true)
+        config_k = initialJoints + t(k) * (bestConfig - initialJoints);
+        show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
+        axis tight;
+        view(45, 30);
+        zlim([0, 40]);
+        drawnow;
+    % end
+end
+if flag == "real"
+N = 20;
+t = linspace(0, 1, N);
+figure;
+for k = 1:N
+    % if (checkJointLimits(bestConfig) == true)
+        config_k = initialJoints + t(k) * (bestConfig - initialJoints);
+        c_config_k = [config_k 0];
+        arb.setpos([1 2 3 4 5], c_config_k, 600);
+        show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
+        axis tight;
+        view(45, 30);
+        zlim([0, 40]);
+        drawnow;
+    % end
+
+end
+end
+
+
+
+
+
+% end
