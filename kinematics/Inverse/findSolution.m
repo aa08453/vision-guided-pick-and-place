@@ -11,9 +11,14 @@ function [bestConfig] = findSolution(x,y,z,phi,robot,currentConfig)
         [collision, ~] = checkSelfCollision(robot, currentConfig, configs(i,:));
         if collision
             disp("Collision detected");
-
             continue
         end
+
+        if (configs(i,2) + configs(i,3) + configs(i,4) > 1.8)
+            disp("collision with the floor")
+            continue
+        end
+
         validSolutions = [validSolutions; configs(i,:)];
     end
     

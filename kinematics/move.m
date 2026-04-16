@@ -1,13 +1,6 @@
 clear; close all; clc;
-% This is a script to build the Phantom X Pincher in MATLAB based on its DH
-% parameters. It is based on MATLAB example available at 
-% https://www.mathworks.com/help/robotics/ug/build-manipulator-robot-using-kinematic-dh-parameters.html
-% MATLAB creates a rigid body tree 
 
 
-% Provide the DH parameters for the robot. The parameters are arranged in
-% the order [a, alpha, d, theta], and going from link 1 to link n. The
-% entry in the matrix corresponding to the joint variable is ignored. 
 dhparams = [0   	pi/2	13.7   	0;
             10.5	0       0       0;
             10.5    0	    0	    0;
@@ -15,18 +8,10 @@ dhparams = [0   	pi/2	13.7   	0;
 
 numJoints = size(dhparams,1);
 
-% Create a rigid body tree object.
 robot = rigidBodyTree;
 robot.DataFormat = 'row';
 
-% Create a model of the robot using DH parameters.
-% Create a cell array for the rigid body object, and another for the joint 
-% objects. Iterate through the DH parameters performing this process:
-% 1. Create a rigidBody object with a unique name.
-% 2. Create and name a revolute rigidBodyJoint object.
-% 3. Use setFixedTransform to specify the body-to-body transformation of the 
-%    joint using DH parameters.
-% 4. Use addBody to attach the body to the rigid body tree.
+
 bodies = cell(numJoints,1);
 joints = cell(numJoints,1);
 
@@ -40,229 +25,56 @@ for i = 1:numJoints
     bodies{i}.Joint = joints{i};
 
     if i == 1
-        % First link extends along Z
-        % tform = trvec2tform([0, 0, lengths(i)/2]);
 
         tform = axang2tform([1 0 0 pi/2]) * trvec2tform([0, 0, lengths(i)/2]);
 
         addCollision(bodies{i}, "cylinder", [0.5, lengths(i)], tform);
         addBody(robot,bodies{i},"base")
     else
-        % Remaining links extend along X
         tform = trvec2tform([-lengths(i)/2, 0, 0]) * axang2tform([0 1 0 pi/2]);
         addCollision(bodies{i}, "cylinder", [0.5, lengths(i)], tform);
         addBody(robot,bodies{i},bodies{i-1}.Name)
     end
 end
 
-% Verify that your robot has been built properly by using the showdetails or
-% show function. The showdetails function lists all the bodies of the robot 
-% in the MATLAB® command window. The show function displays the robot with 
-% a specified configuration (home by default).
 showdetails(robot)
 figure(Name="Phantom X Pincher")
 show(robot);
 
 set(groot,'DefaultFigureWindowStyle','docked')
 
-x = 10;
-y = 0;
-z = 25;
-phi = 0; % to determine phi from R or pass R
-
-
-
-
-p_command = [x; y; z;];
-
-Rz = @(a) [cos(a) -sin(a) 0; sin(a) cos(a) 0; 0 0 1;];
-Ry = @(a) [cos(a) 0 sin(a); 0 1 0; -sin(a) 0 cos(a);];
-
-configs = findJointAngles(x,y,z,phi);
-
-figure(Name="All Configs");
-
-tolerance = 1e-3;
-num_correct = 0;
-for i=1:size(configs,1)
-    subplot(2,2,i);
-    show(robot, configs(i,:), 'Collisions', 'on', 'Visuals', 'off');
-    [x_obtained,y_obtained,z_obtained, R_obtained] = pincherFK(configs(i,:), 0);
-    
-    p_obtained = [x_obtained; y_obtained; z_obtained;];
-    
-    p_err = norm(p_obtained - p_command);
-    
-    theta1 = configs(i,1);
-    Rz_inv = Rz(-theta1);
-    R_planar = Rz_inv * R_obtained;
-    phi_obtained = wrapToPi(atan2(R_planar(3,1), R_planar(1,1)));
-    phi_err1 = wrapToPi(abs(angdiff(phi_obtained, phi)));
-    phi_err2 = wrapToPi(abs(angdiff(phi_obtained, pi - phi)));
-
-    % R_err = norm(R_obtained - R_command);
-
-    % R error we need to derive from my phi somehow, or reduce R to phi.
-    % Since R is the rotation from the fixed frame, there must be something
-    % I can do with phi
-    
-    correct = 1;
-    if (p_err >= tolerance)
-        fprintf("Desired pos: %d %d %d, obtained pos: %d %d %d\n", x, y, z, x_obtained, y_obtained, z_obtained);
-        correct = 0;
-    end
-
-    if ( (phi_err1 >= tolerance) && (phi_err2 >= tolerance))
-        fprintf("Desired orientation: %f, obtained orientation: %f (offsets of pi are oky <3)\n", phi, phi_obtained);
-        correct = 0;
-    end
-    num_correct = num_correct + correct;
-
-    zlim([0,30])
-    view(45, 30)
-    title(sprintf('Config %d: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
-    i, configs(i,1), configs(i,2), configs(i,3), configs(i,4)));
-end
-
-fprintf("Phi obtained: %f, phi commanded: %f", phi_obtained, phi);
-if (num_correct == 4)
-    fprintf("✅");
-end
-fprintf("\n%d/4 correct solutions\n", num_correct)
-
-
-flag = "sim"; % or "sim"
-
+x = 15;
+y = 15;
+z = 13.7;
+% phi = 0; % to determine phi from R or pass R
+phi = atan2(z, sqrt(x^2 + y^2));      % elevation angle to target
+flag = "real"; % or "sim"
+initialJoints = [0 0 0 0];
 if flag == "real"
     arb = Arbotix('port', 'COM4', 'nservos', 5);
+    zeroConfig(arb, 200);
+    pause(3);
     initialJoints = getCurrentPose(arb);   
-elseif flag == "sim"
-    initialJoints = [0 0 0 0];
 end
 
 bestConfig = findSolution(x,y,z,phi,robot,initialJoints);
 disp(bestConfig);
 figure(Name="Best Config");
 
-subplot(1,2,1);
-show(robot, initialJoints, 'Collisions', 'on', 'Visuals', 'off');
-title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
-    initialJoints(1), initialJoints(2), initialJoints(3), initialJoints(4)));
-zlim([0,30])
-view(45, 30)
-ax = gca;
-axis tight;
-ax.XLim = ax.XLim * 2;
-ax.YLim = ax.YLim * 2;
-ax.ZLim = ax.ZLim * 2;       
-
-
-subplot(1,2,2);
-show(robot, bestConfig, 'Collisions', 'on', 'Visuals', 'off');
-title(sprintf('Final: θ1=%.2f θ2=%.2f θ3=%.2f θ4=%.2f', ...
-    bestConfig(1), bestConfig(2), bestConfig(3), bestConfig(4)));
-zlim([0,30])
-view(45, 30)
-ax = gca;
-axis tight;
-ax.XLim = ax.XLim * 2;
-ax.YLim = ax.YLim * 2;
-ax.ZLim = ax.ZLim * 2;   
-
-
-bestConfigDH = findSolution(x, y, z, phi, robot, initialJoints);  % keep DH version
-bestConfigServo = dh2servo(bestConfigDH, false);                   % servo version for real robot
-
 N = 20;
 t = linspace(0, 1, N);
-[x0, y0, z0, ~] = pincherFK(initialJoints, false);
-fprintf("Initial position: x=%.2f, y=%.2f, z=%.2f\n", x0, y0, z0);
-
 figure(Name="Animating pincher movement");
 prevConfig = initialJoints;
 
 for k = 1:N
-    x_k = x0 + t(k) * (x - x0);
-    y_k = y0 + t(k) * (y - y0);
-    z_k = z0 + t(k) * (z - z0);
-
-    if ~isReachable(x_k, y_k, z_k, phi)
-        warning("Waypoint t=%.2f unreachable", t(k));
-        continue;
-    end
-
-    configs_k = findJointAngles(x_k, y_k, z_k, phi);
-
-    if isempty(configs_k)
-        warning("No IK solution at t=%.2f", t(k));
-        continue;
-    end
-
-    % Filter: z must stay above ground
-    validConfigs = [];
-    for i = 1:size(configs_k, 1)
-        if ~checkJointLimits(configs_k(i,:))
-            continue;
-        end
-        [~, ~, z_fk, ~] = pincherFK(configs_k(i,:), false);
-        if z_fk >= -1e-3
-            validConfigs = [validConfigs; configs_k(i,:)];
-        end
-    end
-
-    if isempty(validConfigs)
-        warning("No above-ground valid config at t=%.2f", t(k));
-        continue;
-    end
-
-    % Pick closest config to previous (ensures smooth motion)
-    dists = vecnorm(validConfigs - prevConfig, 2, 2);
-    [~, bestIdx] = min(dists);
-    config_k = validConfigs(bestIdx, :);
-    prevConfig = config_k;
-
-    % Visualize (config_k is in DH space, correct for show/FK)
-    [x_, y_, z_, ~] = pincherFK(config_k, false);
-    disp("x = " + x_ + ", y = " + y_ + ", z = " + z_);
-
+    config_k = initialJoints + (initialJoints - bestConfig) * t(k); 
     show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
     axis tight;
     view(45, 30);
     zlim([0, 40]);
     drawnow;
-end
 
-% Real robot uses servo-space conversion
-if flag == "real"
-    N = 20;
-    t = linspace(0, 1, N);
-    figure;
-    prevConfig = initialJoints;
-    for k = 1:N
-        x_k = x0 + t(k) * (x - x0);
-        y_k = y0 + t(k) * (y - y0);
-        z_k = z0 + t(k) * (z - z0);
-
-        configs_k = findJointAngles(x_k, y_k, z_k, phi);
-        if isempty(configs_k), continue; end
-
-        dists = vecnorm(configs_k - prevConfig, 2, 2);
-        [~, bestIdx] = min(dists);
-        config_k = configs_k(bestIdx, :);
-        prevConfig = config_k;
-
-        % Convert to servo space only when commanding real robot
-        servo_k = dh2servo(config_k, false);
-        c_config_k = [servo_k 0];
-        arb.setpos([1 2 3 4 5], c_config_k, 600);
-
-        show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
-        axis tight; view(45, 30); zlim([0, 40]); drawnow;
+    if flag == "real"
+        setJoints(arb, sim2real(config_k), 200);
     end
 end
-
-
-
-
-
-% end
