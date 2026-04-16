@@ -43,9 +43,9 @@ show(robot);
 
 set(groot,'DefaultFigureWindowStyle','docked')
 
-x = 15;
-y = 15;
-z = 13.7;
+x = -20;
+y = -15;
+z = 20;
 % phi = 0; % to determine phi from R or pass R
 phi = atan2(z, sqrt(x^2 + y^2));      % elevation angle to target
 flag = "real"; % or "sim"
