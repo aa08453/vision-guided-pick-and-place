@@ -25,7 +25,6 @@ for i = 1:numJoints
     bodies{i}.Joint = joints{i};
 
     if i == 1
-
         tform = axang2tform([1 0 0 pi/2]) * trvec2tform([0, 0, lengths(i)/2]);
 
         addCollision(bodies{i}, "cylinder", [0.5, lengths(i)], tform);
@@ -43,12 +42,13 @@ show(robot);
 
 set(groot,'DefaultFigureWindowStyle','docked')
 
+% constraint x+y+z <= 45.7
 x = -20;
-y = -15;
-z = 20;
-% phi = 0; % to determine phi from R or pass R
+y = 12;
+z = 5;
 phi = atan2(z, sqrt(x^2 + y^2));      % elevation angle to target
-flag = "real"; % or "sim"
+% phi = 0;
+flag = "sim"; % "real" or "sim"
 initialJoints = [0 0 0 0];
 if flag == "real"
     arb = Arbotix('port', 'COM4', 'nservos', 5);
@@ -57,9 +57,25 @@ if flag == "real"
     initialJoints = getCurrentPose(arb);   
 end
 
-bestConfig = findSolution(x,y,z,phi,robot,initialJoints);
+[validSolutions, bestConfig] = findSolution(x,y,z,phi,robot,initialJoints);
 disp(bestConfig);
+
 figure(Name="Best Config");
+for i=1:size(validSolutions,1)
+    subplot(2,2,i);
+    show(robot, validSolutions(i,:), 'Collisions', 'on', 'Visuals', 'off');
+    hold on; 
+    scatter3(x,y,z);
+    hold off;
+
+end
+
+figure(Name="Starting Ending");
+subplot(2,1,1);
+show(robot, initialJoints, 'Collisions', 'on', 'Visuals', 'off');
+subplot(2,1,2);
+show(robot, bestConfig, 'Collisions', 'on', 'Visuals', 'off');
+
 
 N = 20;
 t = linspace(0, 1, N);
@@ -67,9 +83,11 @@ figure(Name="Animating pincher movement");
 prevConfig = initialJoints;
 
 for k = 1:N
-    config_k = initialJoints + (initialJoints - bestConfig) * t(k); 
+    config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
     show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
-    axis tight;
+    hold on;
+    scatter3(x,y,z);
+    hold off;
     view(45, 30);
     zlim([0, 40]);
     drawnow;

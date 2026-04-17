@@ -1,4 +1,4 @@
-function [bestConfig] = findSolution(x,y,z,phi,robot,currentConfig)
+function [validSolutions, bestConfig] = findSolution(x,y,z,phi,robot,currentConfig)
     configs = findJointAngles(x,y,z,phi);
     validSolutions = [];
     
