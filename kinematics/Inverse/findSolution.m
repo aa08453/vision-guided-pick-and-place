@@ -13,11 +13,11 @@ function [validSolutions, bestConfig] = findSolution(x,y,z,phi,robot,currentConf
             disp("Collision detected");
             continue
         end
-
-        if (configs(i,2) + configs(i,3) + configs(i,4) > 1.8)
-            disp("collision with the floor")
-            continue
-        end
+        % 
+        % if (configs(i,2) + configs(i,3) + configs(i,4) > 1.8)
+        %     disp("collision with the floor")
+        %     continue
+        % end
 
         validSolutions = [validSolutions; configs(i,:)];
     end
@@ -27,11 +27,12 @@ function [validSolutions, bestConfig] = findSolution(x,y,z,phi,robot,currentConf
         warning('No valid solutions found');
         return
     end
+
     
     b = [0.3, 0.3, 0.2, 0.2];
     bestCost = inf;
     bestConfig = validSolutions(1,:);
-    
+
     for i = 1:size(validSolutions,1)
         delta = abs(validSolutions(i,:) - currentConfig);
         cost = b * delta';

@@ -1,5 +1,8 @@
-clear; close all; clc;
+function [validSolutions, bestConfig, fig] = moveIK(arb,x,y,z,phi,handle, config)
 
+if isnan(phi) && isnumeric(phi)
+    phi = -atan2(z, sqrt(x^2 + y^2));
+end
 
 dhparams = [0   	pi/2	13.7   	0;
             10.5	0       0       0;
@@ -36,26 +39,17 @@ for i = 1:numJoints
     end
 end
 
+if isnumeric(arb) && isnan(arb)
+
 showdetails(robot)
 figure(Name="Phantom X Pincher")
 show(robot);
 
 set(groot,'DefaultFigureWindowStyle','docked')
 
-% constraint x+y+z <= 45.7
-x = 20;
-y = 0;
-z = 5;
-phi = -atan2(z, sqrt(x^2 + y^2));      % elevation angle to target
-% phi = 0;
-flag = "sim"; % "real" or "sim"
-initialJoints = [0 0 0 0];
-if flag == "real"
-    arb = Arbotix('port', 'COM4', 'nservos', 5);
-    zeroConfig(arb, 200);
-    pause(3);
-    initialJoints = getCurrentPose(arb);   
-end
+
+initialJoints = config;
+
 
 [validSolutions, bestConfig] = findSolution(x,y,z,phi,robot,initialJoints);
 disp(bestConfig);
@@ -79,20 +73,47 @@ show(robot, bestConfig, 'Collisions', 'on', 'Visuals', 'off');
 
 N = 20;
 t = linspace(0, 1, N);
-figure(Name="Animating pincher movement");
+if ~ishandle(handle)
+    figure(Name="Animating pincher movement");
+else
+    figure(handle);
+end
+fig = gcf;
 prevConfig = initialJoints;
 
 for k = 1:N
+    cla;
     config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
     show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
     hold on;
     scatter3(x,y,z);
-    hold off;
+    % hold off;
     view(45, 30);
     zlim([0, 40]);
     drawnow;
 
-    if flag == "real"
-        setJoints(arb, sim2real(config_k), 200);
-    end
+end
+
+else
+
+
+
+% arb = Arbotix('port', 'COM4', 'nservos', 5);
+% zeroConfig(arb, 200);
+% pause(2);
+initialJoints = getCurrentPose(arb);   
+
+[validSolutions, bestConfig] = findSolution(x,y,z,phi,robot,initialJoints);
+disp(bestConfig);
+
+N = 20;
+t = linspace(0, 1, N);
+
+for k = 1:N
+    config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
+    setJoints(arb, sim2real(config_k), 200);
+end
+
+fig = NaN;
+
 end
