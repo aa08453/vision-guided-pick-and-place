@@ -5,5 +5,5 @@ function reachable = isReachable(x, y, z, phi)
     r_bar = r - a4 * cos(phi);
     s_bar = s - a4 * sin(phi);
     cos_arg = (r_bar^2 + s_bar^2 - a2^2 - a3^2) / (2 * a2 * a3);
-    reachable = abs(cos_arg) <= 1;
+    reachable = abs(cos_arg) <= 1;   % this one is already correctend
 end

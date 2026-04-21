@@ -19,11 +19,15 @@ clc; clear; close all;
 % points(4).z = 30;
 
 
-points(1).x = -20;
+points(1).x = 20;
 points(1).y = 0;
-points(1).z = 5;
+points(1).z = 9; % constraint greater than the base height
 
-moveIKSim(points, 1);
+points(2).x = 20;
+points(2).y = 20;
+points(2).z = 20;
+
+moveIKSim(points, 2);
 
 
 % arb = Arbotix('port', 'COM4', 'nservos', 5);

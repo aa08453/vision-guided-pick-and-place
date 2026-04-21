@@ -3,5 +3,5 @@ function [x,y,z,R] = findPincher(arb)
 %   Detailed explanation goes here
 q = arb.getpos();
 jointangles = servo2dh(q(1:4),false);
-[x,y,z,R] = pincherFK(jointangles, false);
+[x,y,z,R] = pincherFK(jointangles);
 end

@@ -1,7 +1,7 @@
 function [configs] = findJointAngles(x, y, z, phi)
     d1 = 13.7; a2 = 10.5; a3 = 10.5; a4 = 11;
 
-    theta1_candidates = [atan2(y, x), atan2(y, x) + pi];
+    theta1_candidates = [atan2(y, x), atan2(y, x)+pi];
     configs = [];
     fprintf('\n=== IK Debug for (%.2f, %.2f, %.2f, phi=%.4f) ===\n', x, y, z, phi);
     fprintf('theta1 candidates: %.4f, %.4f\n', theta1_candidates(1), theta1_candidates(2));
@@ -30,6 +30,7 @@ function [configs] = findJointAngles(x, y, z, phi)
 
         % Guard: skip if position is unreachable
         if abs(cos_theta3_arg) > 1
+            fprintf("Position Unreachable");
             continue;
         end
 
@@ -38,12 +39,12 @@ function [configs] = findJointAngles(x, y, z, phi)
         for theta3_raw = [theta3_pos, -theta3_pos]
             theta2 = atan2(s_bar, r_bar) - atan2(a3 * sin(theta3_raw), a2 + a3 * cos(theta3_raw));
             if t1_idx == 2  % negative theta1 (back-facing)
-                theta2   = wrapToPi(pi - theta2);
-                theta3   = wrapToPi(-theta3_raw);
-                theta4   = wrapToPi(pi - phi - theta3 - theta2);
+                theta2  = (pi - theta2);
+                theta3   = -theta3_raw;
+                theta4   = (pi - phi - theta3 - theta2);
             else             % positive theta1 (front-facing)
                 theta3   = theta3_raw;
-                theta4   = phi - theta3 - theta2;
+                theta4   = (phi - theta3 - theta2);
             end
 
             row = wrapToPi([theta1, theta2, theta3, theta4]);

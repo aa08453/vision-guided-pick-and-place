@@ -49,7 +49,7 @@ showdetails(robot)
 figure(Name="Phantom X Pincher")
 
 % Enter joint angles in the matrix below in radians
-configDesired = [0,0,0,0];
+configDesired = [0,-pi/2,0,0];
 configNow = processDHForSim(configDesired);
 
 % Display robot in provided configuration

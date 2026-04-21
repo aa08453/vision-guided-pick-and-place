@@ -10,7 +10,7 @@ arr = ["T01", "T12", "T23", "T34"];
 syms l1 l2 l3 l4
 d = [l1 0 0 0];
 a = [0 l2 l3 14];
-alpha = [sym(pi/2) 0 0 0];
+alpha = [sym(-pi/2) 0 0 0];
 
 
 
