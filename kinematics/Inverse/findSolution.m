@@ -14,11 +14,17 @@ function [validSolutions, bestConfig] = findSolution(x,y,z,phi,robot,currentConf
             continue
         end
         % 
-        if (abs(configs(i,2) + configs(i,3) + configs(i,4)) > 1.8)
+
+        % 
+        % if (abs(configs(i,2) + configs(i,3) + configs(i,4)) < 1.9)
+        %     disp("collision with the floor")
+        %     continue
+        % end
+        [~,~,z, ~] = pincherFK(configs(i,:));
+        if (z < 0)
             disp("collision with the floor")
             continue
         end
-
         validSolutions = [validSolutions; configs(i,:)];
     end
     

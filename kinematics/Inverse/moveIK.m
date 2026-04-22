@@ -235,7 +235,7 @@ t = linspace(0, 1, N);
 
 for k = 1:N
     config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
-    setJoints(arb, sim2real(config_k), 200);
+    setJoints(arb, sim2real(config_k), 50);
 end
 
 fig = NaN;
