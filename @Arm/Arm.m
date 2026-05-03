@@ -57,8 +57,9 @@ classdef Arm < handle
         simAxes                 % handle to axes within it
         simAxes3D
         simAxesTop
-        poseHistory % Saved plots
+        poseHistory             % Saved plots
 
+        lastIKSolutions         % All solutions from most recent IK call (for show_four_IK)
     end
 
     methods (Access = public)
@@ -104,11 +105,11 @@ classdef Arm < handle
 
 
 
-        moveByJoints(obj, jointAnglesCommanded) 
+        moveByJoints(obj, jointAnglesCommanded)
         success = moveByCoordinates(obj, x, y, z, phi)
-        grip(obj)                                  
-        ungrip(obj)                                
-        home(obj)                                  
+        grip(obj)
+        ungrip(obj)
+        home(obj)
 
         function savePlot(obj, filename)
             % Creates a fresh figure from accumulated history — does not
@@ -155,9 +156,11 @@ classdef Arm < handle
         reachable        = isReachable(obj, x,y,z,phi)   
 
 
-        solutions        = findJointAngles(obj, x,y,z,phi) 
-        validSolutions   = findValidSolution(obj, solutions) 
-        bestSolution     = findSolution(obj, validSolutions)  
+        solutions        = findJointAngles(obj, x,y,z,phi)
+        validSolutions   = findValidSolution(obj, solutions)
+        bestSolution     = findSolution(obj, validSolutions)
+
+        animateInterpolation(obj, startAngles, targetAngles)
 
         function robot = buildRobotStructure(obj)
             numJoints = size(obj.dhparams, 1);
@@ -191,14 +194,13 @@ classdef Arm < handle
 
 
         function ensurePlot(obj)
-            if ~obj.isSimulated, return; end
             if isempty(obj.simFigure) || ~isvalid(obj.simFigure)
                 obj.initPlot();
             end
         end
 
         function initPlot(obj)
-            obj.simFigure = figure('Name', 'Arm Simulator', 'NumberTitle', 'off');
+            obj.simFigure = figure('Name', 'Arm Visualizer', 'NumberTitle', 'off');
 
             obj.simAxes3D  = subplot(1,2,1, 'Parent', obj.simFigure);
             hold(obj.simAxes3D,  'on'); grid on; axis equal;
@@ -216,58 +218,63 @@ classdef Arm < handle
         end
 
         function updatePlot(obj)
-            if ~obj.isSimulated || isempty(obj.simFigure) || ~isvalid(obj.simFigure)
+            if isempty(obj.simFigure) || ~isvalid(obj.simFigure)
                 return
             end
 
-            % Get transforms for current joint angles
             [~, Ts] = obj.DH();
 
-            % Build positions: base (origin) + one point per joint
-            % Row 1 = base, rows 2..N+1 = cumulative joint positions
             numJoints = length(Ts);
             positions = zeros(numJoints + 1, 3);
-            positions(1,:) = [0, 0, 0];   % base
+            positions(1,:) = [0, 0, 0];
             for i = 1:numJoints
                 positions(i+1,:) = Ts{i}(1:3, 4)';
             end
 
             endEffector = positions(end,:);
-
-            % Accumulate end effector history
             obj.poseHistory = [obj.poseHistory; endEffector];
 
-            % --- 3D view ---
             cla(obj.simAxes3D);
+            cla(obj.simAxesTop);
 
-            % Draw arm links
+            % Ghost arms for all IK solutions (show_four_IK flag)
+            if obj.show_four_IK && ~isempty(obj.lastIKSolutions)
+                ghostColors = [0.9 0.7 0.1; 0.7 0.2 0.8; 0.1 0.7 0.3; 0.9 0.4 0.1];
+                for s = 1:size(obj.lastIKSolutions, 1)
+                    [~, Ts_g] = obj.DH(obj.lastIKSolutions(s,:));
+                    gp = zeros(length(Ts_g)+1, 3);
+                    gp(1,:) = [0,0,0];
+                    for j = 1:length(Ts_g)
+                        gp(j+1,:) = Ts_g{j}(1:3,4)';
+                    end
+                    c = ghostColors(mod(s-1,4)+1, :);
+                    plot3(obj.simAxes3D, gp(:,1), gp(:,2), gp(:,3), ...
+                        '--o', 'Color', c, 'LineWidth', 1, 'MarkerSize', 4);
+                    plot(obj.simAxesTop, gp(:,1), gp(:,2), ...
+                        '--o', 'Color', c, 'LineWidth', 1, 'MarkerSize', 4);
+                end
+            end
+
+            % --- 3D view: active arm ---
             plot3(obj.simAxes3D, ...
                 positions(:,1), positions(:,2), positions(:,3), ...
                 'o-', 'LineWidth', 2, 'MarkerSize', 6, ...
                 'Color', [0.2 0.4 0.8], 'MarkerFaceColor', [0.2 0.4 0.8]);
-
-            % Highlight end effector
             plot3(obj.simAxes3D, endEffector(1), endEffector(2), endEffector(3), ...
                 'r*', 'MarkerSize', 10);
 
-            % End effector trace
             if size(obj.poseHistory, 1) > 1
                 plot3(obj.simAxes3D, ...
                     obj.poseHistory(:,1), obj.poseHistory(:,2), obj.poseHistory(:,3), ...
                     '--', 'Color', [0.6 0.6 0.6]);
             end
-
-            % Keep axes from resizing on every update
             axis(obj.simAxes3D, 'equal');
 
-            % --- Top-down view ---
-            cla(obj.simAxesTop);
-
+            % --- Top-down view: active arm ---
             plot(obj.simAxesTop, ...
                 positions(:,1), positions(:,2), ...
                 'o-', 'LineWidth', 2, 'MarkerSize', 6, ...
                 'Color', [0.2 0.4 0.8], 'MarkerFaceColor', [0.2 0.4 0.8]);
-
             plot(obj.simAxesTop, endEffector(1), endEffector(2), ...
                 'r*', 'MarkerSize', 10);
 
@@ -276,9 +283,7 @@ classdef Arm < handle
                     obj.poseHistory(:,1), obj.poseHistory(:,2), ...
                     '--', 'Color', [0.6 0.6 0.6]);
             end
-
             axis(obj.simAxesTop, 'equal');
-
             drawnow;
         end
 

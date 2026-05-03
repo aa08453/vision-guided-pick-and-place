@@ -2,63 +2,42 @@
 function success = moveByCoordinates(obj, x, y, z, phi)
 
 	success = false;
-	% phi is optional — pass NaN or omit to auto-compute
-
-	% fprintf('  DEBUG: entered moveByCoordinates\n');
 
 	if nargin < 5 || (isnumeric(phi) && isnan(phi))
 		phi = atan2(z - 24.2, sqrt(x^2 + y^2));
 	end
-	% fprintf('  DEBUG: phi = %.4f\n', phi);
-	obj.ensurePlot();
-	% fprintf('  DEBUG: ensurePlot done\n');
-	% Get current joint angles as warm start for IK
-	q0 = obj.jointAngles(1:4);
 
-	
+	obj.ensurePlot();
+	prevAngles = obj.jointAngles(1:4);
 
 	solutions      = obj.findJointAngles(x, y, z, phi);
-	% fprintf('  DEBUG: findJointAngles returned %d solutions\n', size(solutions,1));
+	obj.lastIKSolutions = solutions;
 	validSolutions = obj.findValidSolution(solutions);
-	% fprintf('  DEBUG: findValidSolution returned %d valid\n', size(validSolutions,1));
 	bestSolution   = obj.findSolution(validSolutions);
-	% fprintf('  DEBUG: findSolution done\n');
 
-	% bestSolution(2) = bestSolution(2) 
 	if isempty(bestSolution)
-	    success = false;
-	    return
+		return
 	end
 
-	% Send to hardware if real
 	if ~obj.isSimulated
-		% obj.sendJointsToHardware(bestSolution);
-		% obj.moveByJoints(bestSolution);
-		obj.arb.setpos(4,bestSolution(4),obj.speed);
-		obj.arb.setpos(3,bestSolution(3),obj.speed);
-		obj.arb.setpos(2,bestSolution(2) + pi/2, obj.speed);
-		obj.arb.setpos(1,bestSolution(1),obj.speed);
-
-
-
-		pause(obj.speed / 100);  % scale pause by speed
+		obj.arb.setpos(4, bestSolution(4), obj.speed);
+		obj.arb.setpos(3, bestSolution(3), obj.speed);
+		obj.arb.setpos(2, bestSolution(2) + pi/2, obj.speed);
+		obj.arb.setpos(1, bestSolution(1), obj.speed);
+		pause(obj.speed / 100);
 	end
-
-	% Update state
-
-	% fprintf('  DEBUG: updating joints to [%s]\n', num2str(bestSolution, '%.3f '));
 
 	obj.jointAngles(1:4) = bestSolution;
-	obj.x_current = x;
-	obj.y_current = y;
-	obj.z_current = z;
+	obj.x_current  = x;
+	obj.y_current  = y;
+	obj.z_current  = z;
 	obj.phi_current = phi;
 
+	if obj.show_trajectory_interpolated
+		obj.animateInterpolation(prevAngles, bestSolution);
+	else
+		obj.updatePlot();
+	end
 
-	% fprintf('  DEBUG: joint angles now [%s]\n', num2str(obj.jointAngles, '%.3f '));
-
-
-	obj.updatePlot();
 	success = true;
 end
-

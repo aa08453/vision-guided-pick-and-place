@@ -4,13 +4,13 @@ function solutions = findJointAngles(obj, x, y, z, phi)
     a3 = obj.a(3);
     a4 = obj.a(4);
 
-
-
     theta1_candidates = [atan2(y, x), atan2(y, x)+pi];
     solutions = [];
 
-    fprintf('\n=== IK Debug for (%.2f, %.2f, %.2f, phi=%.4f) ===\n', x, y, z, phi);
-    fprintf('theta1 candidates: %.4f, %.4f\n', theta1_candidates(1), theta1_candidates(2));
+    if obj.show_debug_output
+        fprintf('\n=== IK Debug for (%.2f, %.2f, %.2f, phi=%.4f) ===\n', x, y, z, phi);
+        fprintf('theta1 candidates: %.4f, %.4f\n', theta1_candidates(1), theta1_candidates(2));
+    end
 
     for t1_idx = 1:2
         theta1 = theta1_candidates(t1_idx);
@@ -20,13 +20,17 @@ function solutions = findJointAngles(obj, x, y, z, phi)
         s_bar = s - a4 * sin(phi);
         cos_theta3_arg = (r_bar^2 + s_bar^2 - a2^2 - a3^2) / (2 * a2 * a3);
 
-        fprintf('\n-- t1_idx=%d, theta1=%.4f --\n', t1_idx, wrapToPi(theta1_candidates(t1_idx)));
-        fprintf('  r=%.4f, s=%.4f\n', r, s);
-        fprintf('  r_bar=%.4f, s_bar=%.4f\n', r_bar, s_bar);
-        fprintf('  cos_theta3_arg=%.4f\n', cos_theta3_arg);
+        if obj.show_debug_output
+            fprintf('\n-- t1_idx=%d, theta1=%.4f --\n', t1_idx, wrapToPi(theta1_candidates(t1_idx)));
+            fprintf('  r=%.4f, s=%.4f\n', r, s);
+            fprintf('  r_bar=%.4f, s_bar=%.4f\n', r_bar, s_bar);
+            fprintf('  cos_theta3_arg=%.4f\n', cos_theta3_arg);
+        end
 
         if abs(cos_theta3_arg) > 1
-            fprintf('  Position Unreachable\n');
+            if obj.show_debug_output
+                fprintf('  Position Unreachable\n');
+            end
             continue;
         end
 
@@ -45,12 +49,16 @@ function solutions = findJointAngles(obj, x, y, z, phi)
             row = wrapToPi([theta1, theta2, theta3, theta4]);
 
             if any(~isfinite(row))
-                fprintf('  SKIPPED: unreachable\n');
+                if obj.show_debug_output
+                    fprintf('  SKIPPED: unreachable\n');
+                end
                 continue;
             end
 
-            fprintf('  theta3=%.4f => [th1=%.4f, th2=%.4f, th3=%.4f, th4=%.4f]\n', ...
-                theta3, row(1), row(2), row(3), row(4));
+            if obj.show_debug_output
+                fprintf('  theta3=%.4f => [th1=%.4f, th2=%.4f, th3=%.4f, th4=%.4f]\n', ...
+                    theta3, row(1), row(2), row(3), row(4));
+            end
             solutions = [solutions; row];
         end
     end
