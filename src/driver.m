@@ -53,14 +53,14 @@ end
 fprintf('\n=== Part 2: pick and place ===\n');
 
 % Place the cube at the pick location
-pick_x = 25; pick_y = 0; pick_z = 0;
+pick_x = 20; pick_y = 0; pick_z = 2;
 arm.setCubePos(pick_x, pick_y, pick_z);
 fprintf('Cube placed at (%.1f, %.1f, %.1f)\n', pick_x, pick_y, pick_z);
 pause(1.0);
 
 % Pick up the cube
 fprintf('\nPicking cube at (%.1f, %.1f, %.1f) ...\n', pick_x, pick_y, pick_z);
-success = arm.pickAndPlace(pick_x, pick_y, pick_z, NaN, 7);
+success = arm.pickAndPlace(pick_x, pick_y, pick_z, -pi/2, 7);
 if ~success
     fprintf('  WARNING: pick failed\n');
 else
@@ -68,9 +68,9 @@ else
     pause(1.0);
 
     % Place the cube at a new location
-    place_x = 0; place_y = 25; place_z = 0;
+    place_x = 0; place_y = 20; place_z = 2;
     fprintf('\nPlacing cube at (%.1f, %.1f, %.1f) ...\n', place_x, place_y, place_z);
-    success = arm.place(place_x, place_y, place_z, NaN, 7);
+    success = arm.place(place_x, place_y, place_z, -pi/2, 7);
     if ~success
         fprintf('  WARNING: place failed\n');
     else
