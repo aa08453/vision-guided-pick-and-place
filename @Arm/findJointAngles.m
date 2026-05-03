@@ -1,8 +1,8 @@
-function [configs] = findJointAngles(x, y, z, phi)
+function [solutions] = findJointAngles(x, y, z, phi)
     d1 = 13.7; a2 = 10.5; a3 = 10.5; a4 = 11;
 
     theta1_candidates = [atan2(y, x), atan2(y, x)+pi];
-    configs = [];
+    solutions = [];
     fprintf('\n=== IK Debug for (%.2f, %.2f, %.2f, phi=%.4f) ===\n', x, y, z, phi);
     fprintf('theta1 candidates: %.4f, %.4f\n', theta1_candidates(1), theta1_candidates(2));
 
@@ -58,11 +58,11 @@ function [configs] = findJointAngles(x, y, z, phi)
             fprintf('  theta3=%.4f => [th1=%.4f, th2=%.4f, th3=%.4f, th4=%.4f]\n', ...
         theta3, row(1), row(2), row(3), row(4));
 
-            configs = [configs; row];
+            solutions = [solutions; row];
         end
     end
 
-    if isempty(configs)
+    if isempty(solutions)
         warning('findJointAngles: no valid IK solutions for (%.2f, %.2f, %.2f)', x, y, z);
     end
 end
