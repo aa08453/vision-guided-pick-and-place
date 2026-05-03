@@ -10,10 +10,11 @@ function success = moveByCoordinates(obj, x, y, z, phi)
 	obj.ensurePlot();
 	prevAngles = obj.jointAngles(1:4);
 
-	solutions      = obj.findJointAngles(x, y, z, phi);
+	solutions           = obj.findJointAngles(x, y, z, phi);
 	obj.lastIKSolutions = solutions;
-	validSolutions = obj.findValidSolution(solutions);
-	bestSolution   = obj.findSolution(validSolutions);
+	validSolutions      = obj.findValidSolution(solutions);
+	obj.lastValidSolutions = validSolutions;
+	bestSolution        = obj.findSolution(validSolutions);
 
 	if isempty(bestSolution)
 		return
