@@ -1,3 +1,4 @@
+
 % This has the following attributes
 % Real or simulated robot
 
@@ -20,7 +21,7 @@
 % Private Variables 
 %	- 
 
-classdef Arm
+classdef Arm < handle
     properties (SetAccess = private, GetAccess = public)
         % Computed/observed state — readable but not settable from outside
         x_current
@@ -37,6 +38,8 @@ classdef Arm
         show_four_IK            = false
         show_trajectory_interpolated = false
         show_debug_output       = false
+
+        a; d; alpha; theta; dhparams; lengths;
     end
 
     properties (Access = private)
@@ -54,6 +57,7 @@ classdef Arm
         simAxes3D
         simAxesTop
         poseHistory % Saved plots
+
     end
 
     methods (Access = public)
@@ -67,6 +71,20 @@ classdef Arm
             obj.jointAngles = zeros(1, 5);
             obj.grippingStatus = false;
             obj.poseHistory = [];
+
+
+            obj.a      = [0,    10.5, 10.5, 11];
+            obj.alpha  = [pi/2, 0,    0,    0 ];
+            obj.d      = [13.7, 0,    0,    0 ];
+            obj.theta  = [0,    0,    0,    0 ];
+
+            % Build matrix using obj.* — not bare variable names
+            obj.dhparams = [obj.a', obj.alpha', obj.d', obj.theta'];  % 4x4
+
+            obj.lengths = [obj.d(1), obj.a(2), obj.a(3), obj.a(4)];
+
+
+
 
             % Build the rigidBodyTree — same for both modes
             obj.robotStructure = obj.buildRobotStructure();
@@ -84,11 +102,11 @@ classdef Arm
 
 
 
-        obj = moveByJoints(obj, jointAnglesCommanded)   
-        success = moveByCoordinates(obj, x, y, z, phi)      
-        obj = grip(obj)                                  
-        obj = ungrip(obj)                                
-        obj = home(obj)                                  
+        moveByJoints(obj, jointAnglesCommanded) 
+        success = moveByCoordinates(obj, x, y, z, phi)
+        grip(obj)                                  
+        ungrip(obj)                                
+        home(obj)                                  
 
         function savePlot(obj, filename)
             % Creates a fresh figure from accumulated history — does not
@@ -127,7 +145,7 @@ classdef Arm
     end
 
     methods (Access = private)
-        [T, Ts]          = DH(obj)                       
+        [T, Ts]          = DH(obj, config)                       
         collision        = checkSelfCollision(obj, solutions) 
         withinLimits     = checkJointLimits(obj, solution) 
 
@@ -140,12 +158,7 @@ classdef Arm
         bestSolution     = findSolution(obj, validSolutions)  
 
         function robot = buildRobotStructure(obj)
-            dhparams = [0     pi/2  13.7  0;
-                10.5  0     0     0;
-                10.5  0     0     0;
-                11    0     0     0];
-            numJoints = size(dhparams, 1);
-            lengths   = [13.7, 10.5, 10.5, 11];
+            numJoints = size(obj.dhparams, 1);
 
             robot = rigidBodyTree;
             robot.DataFormat = 'row';
@@ -156,21 +169,20 @@ classdef Arm
             for i = 1:numJoints
                 bodies{i} = rigidBody(['body' num2str(i)]);
                 joints{i} = rigidBodyJoint(['jnt' num2str(i)], 'revolute');
-                setFixedTransform(joints{i}, dhparams(i,:), 'dh');
+                setFixedTransform(joints{i}, obj.dhparams(i,:), 'dh');
                 bodies{i}.Joint = joints{i};
 
                 if i == 1
-                    tform = axang2tform([1 0 0 pi/2]) * trvec2tform([0, 0, lengths(i)/2]);
-                    addCollision(bodies{i}, 'cylinder', [0.5, lengths(i)], tform);
+                    tform = axang2tform([1 0 0 pi/2]) * trvec2tform([0, 0, obj.lengths(i)/2]);
+                    addCollision(bodies{i}, 'cylinder', [0.5, obj.lengths(i)], tform);
                     addBody(robot, bodies{i}, 'base');
                 else
-                    tform = trvec2tform([-lengths(i)/2, 0, 0]) * axang2tform([0 1 0 pi/2]);
-                    addCollision(bodies{i}, 'cylinder', [0.5, lengths(i)], tform);
+                    tform = trvec2tform([-obj.lengths(i)/2, 0, 0]) * axang2tform([0 1 0 pi/2]);
+                    addCollision(bodies{i}, 'cylinder', [0.5, obj.lengths(i)], tform);
                     addBody(robot, bodies{i}, bodies{i-1}.Name);
                 end
             end
         end
-
 
 
 
@@ -206,37 +218,69 @@ classdef Arm
                 return
             end
 
+            % Get transforms for current joint angles
             [~, Ts] = obj.DH();
-            positions = zeros(length(Ts)+1, 3);
-            for i = 1:length(Ts)
-                positions(i+1,:) = Ts{i}(1:3,4)';
+
+            % Build positions: base (origin) + one point per joint
+            % Row 1 = base, rows 2..N+1 = cumulative joint positions
+            numJoints = length(Ts);
+            positions = zeros(numJoints + 1, 3);
+            positions(1,:) = [0, 0, 0];   % base
+            for i = 1:numJoints
+                positions(i+1,:) = Ts{i}(1:3, 4)';
             end
 
-            % Accumulate history for saved plots
-            obj.poseHistory = [obj.poseHistory; positions(end,:)];
+            endEffector = positions(end,:);
 
-            % --- Live 3D ---
+            % Accumulate end effector history
+            obj.poseHistory = [obj.poseHistory; endEffector];
+
+            % --- 3D view ---
             cla(obj.simAxes3D);
-            plot3(obj.simAxes3D, positions(:,1), positions(:,2), positions(:,3), ...
-                'o-', 'LineWidth', 2, 'MarkerFaceColor', 'b');
-            % Trace of where the end effector has been
+
+            % Draw arm links
+            plot3(obj.simAxes3D, ...
+                positions(:,1), positions(:,2), positions(:,3), ...
+                'o-', 'LineWidth', 2, 'MarkerSize', 6, ...
+                'Color', [0.2 0.4 0.8], 'MarkerFaceColor', [0.2 0.4 0.8]);
+
+            % Highlight end effector
+            plot3(obj.simAxes3D, endEffector(1), endEffector(2), endEffector(3), ...
+                'r*', 'MarkerSize', 10);
+
+            % End effector trace
             if size(obj.poseHistory, 1) > 1
                 plot3(obj.simAxes3D, ...
                     obj.poseHistory(:,1), obj.poseHistory(:,2), obj.poseHistory(:,3), ...
                     '--', 'Color', [0.6 0.6 0.6]);
             end
 
-            % --- Live top-down ---
+            % Keep axes from resizing on every update
+            axis(obj.simAxes3D, 'equal');
+
+            % --- Top-down view ---
             cla(obj.simAxesTop);
-            plot(obj.simAxesTop, positions(:,1), positions(:,2), ...
-                'o-', 'LineWidth', 2, 'MarkerFaceColor', 'b');
+
+            plot(obj.simAxesTop, ...
+                positions(:,1), positions(:,2), ...
+                'o-', 'LineWidth', 2, 'MarkerSize', 6, ...
+                'Color', [0.2 0.4 0.8], 'MarkerFaceColor', [0.2 0.4 0.8]);
+
+            plot(obj.simAxesTop, endEffector(1), endEffector(2), ...
+                'r*', 'MarkerSize', 10);
+
             if size(obj.poseHistory, 1) > 1
                 plot(obj.simAxesTop, ...
                     obj.poseHistory(:,1), obj.poseHistory(:,2), ...
                     '--', 'Color', [0.6 0.6 0.6]);
             end
 
+            axis(obj.simAxesTop, 'equal');
+
             drawnow;
         end
+
+
+
     end
 end

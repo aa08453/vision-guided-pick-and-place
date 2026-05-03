@@ -3,6 +3,8 @@ function validSolutions = findValidSolution(obj, solutions)
 
     for i = 1:size(solutions, 1)
 
+        disp(solutions(i,:))
+
         % --- Joint limit check ---
         if ~obj.checkJointLimits(solutions(i,:))
             if obj.show_debug_output
