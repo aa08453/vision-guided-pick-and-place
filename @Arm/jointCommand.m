@@ -1,4 +1,4 @@
-function setJoints(arb, pos, speed)
+function setJoints(pos, speed)
     % arb.setpos(5,0,speed);
     arb.setpos(4,pos(4),speed);
     arb.setpos(3,pos(3),speed);
