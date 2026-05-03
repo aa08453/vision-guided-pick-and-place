@@ -40,6 +40,7 @@ classdef Arm < handle
         show_debug_output       = false
 
         a; d; alpha; theta; dhparams; lengths;
+        arb;
     end
 
     properties (Access = private)
@@ -95,6 +96,7 @@ classdef Arm < handle
                 end
                 obj.com_port = varargin{1};
                 obj.speed    = 100;  % default
+                obj.arb = Arbotix('port', obj.com_port, 'nservos', 5);
                 % Open serial connection here
                 % obj.serialDevice = serialport(obj.com_port, 9600);
             end

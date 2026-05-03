@@ -1,7 +1,7 @@
 % Drives the arm to four points on the circumference of a circle
 clc; clear; close all;
 
-r   = 20;   % radius (cm) — tune to your workspace
+r   = 25;   % radius (cm) — tune to your workspace
 z   = 12;   % fixed height (cm)
 phi = NaN;   % NaN = auto-compute pitch, or set e.g. -pi/2 to fix it
 
@@ -9,7 +9,8 @@ phi = NaN;   % NaN = auto-compute pitch, or set e.g. -pi/2 to fix it
 angles_deg = [45, 135, 225, 315];
 targets = [r*cosd(angles_deg); r*sind(angles_deg)]';  % 4x2
 
-arm = Arm('sim');   % swap to Arm('real', 'COM3') for hardware
+% arm = Arm('sim');   % swap to Arm('real', 'COM3') for hardware
+arm = Arm('real', '/dev/ttyUSB0');   % swap to Arm('real', 'COM3') for hardware
 
 for i = 1:size(targets, 1)
     x = targets(i, 1);
