@@ -6,7 +6,7 @@ function [collision, config_k] = checkSelfCollision(robot, jointAngleInitial, jo
     for k = 2:length(t)-1
         config_k = jointAngleInitial + t(k) * (jointAngleFinal - jointAngleInitial);
         collision = checkCollision(robot, config_k, 'SkippedSelfCollisions','parent');
-         warning("Self collisions bro");
+         % warning("Self collisions bro");
 
         if collision
             return

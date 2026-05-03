@@ -141,70 +141,7 @@ end
 fig = gcf;
 % prevConfig = initialJoints;
 % 
-% for k = 1:N
-%     cla;
-%     config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
-%     show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
-%     hold on;
-%     drawJointAxes(robot, config_k, 2);
-%     scatter3(x,y,z);
-%     % hold off;
-%     view(45, 30);
-%     zlim([0, 40]);
-%     drawnow;
-% 
-% end
-
-[x0, y0, z0, ~] = pincherFK(initialJoints);
-fprintf("Initial position: x=%.2f, y=%.2f, z=%.2f\n", x0, y0, z0);
-
-figure(Name="Animating pincher movement");
-prevConfig = initialJoints;
-
 for k = 1:N
-    x_k = x0 + t(k) * (x - x0);
-    y_k = y0 + t(k) * (y - y0);
-    z_k = z0 + t(k) * (z - z0);
-
-    if ~isReachable(x_k, y_k, z_k, phi)
-        warning("Waypoint t=%.2f unreachable", t(k));
-        continue;
-    end
-
-    configs_k = findJointAngles(x_k, y_k, z_k, phi);
-
-    if isempty(configs_k)
-        warning("No IK solution at t=%.2f", t(k));
-        continue;
-    end
-
-    % Filter: z must stay above ground
-    validConfigs = [];
-    for i = 1:size(configs_k, 1)
-        if ~checkJointLimits(configs_k(i,:))
-            continue;
-        end
-        [~, ~, z_fk, ~] = pincherFK(configs_k(i,:));
-        if z_fk >= -1e-3
-            validConfigs = [validConfigs; configs_k(i,:)];
-        end
-    end
-
-    if isempty(validConfigs)
-        warning("No above-ground valid config at t=%.2f", t(k));
-        continue;
-    end
-
-    % Pick closest config to previous (ensures smooth motion)
-    dists = vecnorm(validConfigs - prevConfig, 2, 2);
-    [~, bestIdx] = min(dists);
-    config_k = validConfigs(bestIdx, :);
-    prevConfig = config_k;
-
-    % Visualize (config_k is in DH space, correct for show/FK)
-    [x_, y_, z_, ~] = pincherFK(config_k);
-    disp("x = " + x_ + ", y = " + y_ + ", z = " + z_);
-
     cla;
     config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
     show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
@@ -215,7 +152,70 @@ for k = 1:N
     view(45, 30);
     zlim([0, 40]);
     drawnow;
+
 end
+
+% [x0, y0, z0, ~] = pincherFK(initialJoints);
+% fprintf("Initial position: x=%.2f, y=%.2f, z=%.2f\n", x0, y0, z0);
+% 
+% figure(Name="Animating pincher movement");
+% prevConfig = initialJoints;
+% 
+% for k = 1:N
+    % x_k = x0 + t(k) * (x - x0);
+    % y_k = y0 + t(k) * (y - y0);
+    % z_k = z0 + t(k) * (z - z0);
+    % 
+    % if ~isReachable(x_k, y_k, z_k, phi)
+    %     warning("Waypoint t=%.2f unreachable", t(k));
+    %     continue;
+    % end
+    % 
+    % configs_k = findJointAngles(x_k, y_k, z_k, phi);
+    % 
+    % if isempty(configs_k)
+    %     warning("No IK solution at t=%.2f", t(k));
+    %     continue;
+    % end
+
+    % Filter: z must stay above ground
+    % validConfigs = [];
+    % for i = 1:size(configs_k, 1)
+    %     if ~checkJointLimits(configs_k(i,:))
+    %         continue;
+    %     end
+    %     [~, ~, z_fk, ~] = pincherFK(configs_k(i,:));
+    %     if z_fk >= -1e-3
+    %         validConfigs = [validConfigs; configs_k(i,:)];
+    %     end
+    % end
+    % 
+    % if isempty(validConfigs)
+    %     warning("No above-ground valid config at t=%.2f", t(k));
+    %     continue;
+    % end
+    % 
+    % % Pick closest config to previous (ensures smooth motion)
+    % dists = vecnorm(validConfigs - prevConfig, 2, 2);
+    % [~, bestIdx] = min(dists);
+    % config_k = validConfigs(bestIdx, :);
+    % prevConfig = config_k;
+    % 
+    % % Visualize (config_k is in DH space, correct for show/FK)
+    % [x_, y_, z_, ~] = pincherFK(config_k);
+    % disp("x = " + x_ + ", y = " + y_ + ", z = " + z_);
+
+    % cla;
+    % config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
+    % show(robot, config_k, 'Collisions', 'on', 'Visuals', 'off');
+    % hold on;
+    % drawJointAxes(robot, config_k, 2);
+    % scatter3(x,y,z);
+    % % hold off;
+    % view(45, 30);
+    % zlim([0, 40]);
+    % drawnow;
+% end
 
 
 else
@@ -235,7 +235,7 @@ t = linspace(0, 1, N);
 
 for k = 1:N
     config_k = initialJoints + (bestConfig - initialJoints) * t(k); 
-    setJoints(arb, sim2real(config_k), 50);
+    setJoints(arb, sim2real(config_k), 80);
 end
 
 fig = NaN;

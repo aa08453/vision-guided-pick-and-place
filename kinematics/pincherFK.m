@@ -5,7 +5,6 @@ function [x,y,z,R] = pincherFK(jointAngles)
 d = [13.7 0 0 0];
 a = [0 10.5 10.5 11];
 alpha = [pi/2, 0, 0, 0];
-alpha = deg2rad(alpha);
 
 
 T = DH(jointAngles, d, a, alpha);
