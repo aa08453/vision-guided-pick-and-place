@@ -23,6 +23,8 @@ function success = moveByCoordinates(obj, x, y, z, phi)
 	% fprintf('  DEBUG: findValidSolution returned %d valid\n', size(validSolutions,1));
 	bestSolution   = obj.findSolution(validSolutions);
 	% fprintf('  DEBUG: findSolution done\n');
+
+	% bestSolution(2) = bestSolution(2) 
 	if isempty(bestSolution)
 	    success = false;
 	    return
@@ -34,7 +36,7 @@ function success = moveByCoordinates(obj, x, y, z, phi)
 		% obj.moveByJoints(bestSolution);
 		obj.arb.setpos(4,bestSolution(4),obj.speed);
 		obj.arb.setpos(3,bestSolution(3),obj.speed);
-		obj.arb.setpos(2,bestSolution(2),obj.speed);
+		obj.arb.setpos(2,bestSolution(2) + pi/2, obj.speed);
 		obj.arb.setpos(1,bestSolution(1),obj.speed);
 
 

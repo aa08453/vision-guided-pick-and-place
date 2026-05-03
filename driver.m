@@ -1,8 +1,8 @@
 % Drives the arm to four points on the circumference of a circle
 clc; clear; close all;
 
-r   = 25;   % radius (cm) — tune to your workspace
-z   = 12;   % fixed height (cm)
+r   = 31;   % radius (cm) — tune to your workspace
+z   = 13.7;   % fixed height (cm)
 phi = NaN;   % NaN = auto-compute pitch, or set e.g. -pi/2 to fix it
 
 % Four points at 45/135/225/315 degrees — cardinal diagonals of the circle
