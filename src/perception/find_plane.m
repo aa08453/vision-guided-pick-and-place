@@ -3,14 +3,14 @@ function [sliced_rgb, model] = find_plane(pointCloud)
     % imshow(rgb, [])
     % title("RGB Image")
     
-    maxDistance = 0.02; % 2 cm
+    maxDistance = 0.01; % 2 cm
     referenceVector = [0, 0, 1]; % z axis
     maxAngularDistance = 5; % degrees
     
     [model,~,outlierIndices] = pcfitplane(pointCloud,...
                 maxDistance,referenceVector,maxAngularDistance);
     
-    figure;
+    % figure;
     
     sliced_rgb = uint8(zeros(480,640, 3));
     [row, col] = ind2sub([480 640], outlierIndices);

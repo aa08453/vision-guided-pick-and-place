@@ -1,6 +1,6 @@
 clc; clear all; close all;
 
-read_flag = "file" % or file 
+read_flag = "stream" % or file 
 
 if (read_flag == "stream")
     % Make Pipeline object to manage streaming
@@ -63,7 +63,7 @@ if (read_flag == "stream")
     % Create a point cloud
     ptCloud = pcfromdepth(depth_frame,1/depth_scaling,intrinsics,ColorImage=color_frame)
 elseif (read_flag == "file")
-    ptCloud = pcread("ptCloud.pcd")
+    ptCloud = pcread("ptCloud.pcd");
 end
 rgb = (ptCloud.Color);
 

@@ -23,7 +23,7 @@ function success = moveByCoordinates(obj, x, y, z, phi)
 	if ~obj.isSimulated
 		obj.arb.setpos(4, bestSolution(4), obj.speed);
 		obj.arb.setpos(3, bestSolution(3), obj.speed);
-		obj.arb.setpos(2, bestSolution(2) + pi/2, obj.speed);
+		obj.arb.setpos(2, bestSolution(2) - pi/2, obj.speed);
 		obj.arb.setpos(1, bestSolution(1), obj.speed);
 		pause(obj.speed / 100);
 	end

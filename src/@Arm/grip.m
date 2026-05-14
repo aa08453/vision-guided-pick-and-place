@@ -11,6 +11,10 @@ function grip(obj)
         end
     end
 
+    if ~obj.isSimulated
+        obj.arb.setpos(5,1.5);
+    end
+
     obj.ensurePlot();
     obj.updatePlot();
 end

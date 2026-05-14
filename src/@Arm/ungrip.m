@@ -9,6 +9,10 @@ function ungrip(obj)
         obj.cubeHeld = false;
     end
 
+    if ~obj.isSimulated
+        obj.arb.setpos(5, 0);
+    end
+
     obj.ensurePlot();
     obj.updatePlot();
 end

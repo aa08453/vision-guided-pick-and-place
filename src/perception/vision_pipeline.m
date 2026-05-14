@@ -1,200 +1,49 @@
 function [segmented_rgb, sortedLabels] = vision_pipeline(pointCloud)
-[sliced_rgb, model] = find_plane(pointCloud);
-subplot(3,2,1);
-imshow(sliced_rgb);
-title('Original Image');
-
-
-numClusters = 6;
-[segmented_rgb, Centers] = segment(sliced_rgb, numClusters); % Gives segment mask
-[mergedMasks, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb);
-
-
-weights = reshape([1, 2, 3, 4], [1, 1, 4]);
-mergedSegments = sum(double(mergedMasks) .* weights, 3);
-subplot(3,2,2);
-imshow(mergedSegments);
-title('Segmented image')
-
-% Map 1->Yellow, 2->Red, 3->Green, 4->Blue
-customColormap = [1 1 0;  % 1: Yellow
-                  1 0 0;  % 2: Red
-                  0 1 0;  % 3: Green
-                  0 0 1]; % 4: Blue
-
-
-rgbLabelImage = label2rgb(mergedSegments, customColormap, 'k'); % 'k' for black background
-subplot(3,2,3);
-imshow(rgbLabelImage);
-title('Segmented and merged image')
-
-instanceMap = zeros(480, 640);
-currentID = 1;
-
-lab_img = rgb2lab(sliced_rgb);
-a_chan = lab_img(:,:,2);
-b_chan = lab_img(:,:,3);
-
-
-
-for c = 1:4
+    % Main pipeline orchestrator
+    % Processes point cloud through segmentation and instance detection
     
-    bw = mergedMasks(:,:,c);
-    if ~any(bw(:)), continue; end
+    % Create figure with white background and larger size
+    % fig = figure('Color', 'white', 'Position', [100, 100, 1600, 1200]);
     
-    % 2. Select the most relevant color channel for the gradient
-    % Yellow and Blue are most active in 'b', Red and Green in 'a'
-    if c == 1 || c == 4 % Yellow or Blue
-        target_chan = b_chan;
-    else % Red or Green
-        target_chan = a_chan;
-    end
+    % Stage 1: Extract plane and get image
+    [sliced_rgb, model] = find_plane(pointCloud);
+    % visualize_step(sliced_rgb, 1, 'Original Image');
+
+    targetSize = [480 480];
+    r = centerCropWindow2d(size(sliced_rgb),targetSize);
+    rgb_crop = imcrop(sliced_rgb, r);
+    % figure;
+    % imshow(rgb_crop);
+    % [x,y] = ginput;
+    % display(x);
+    % display(y);
+    % figure;
+    mask = true(size(rgb_crop));
+    mask(130:310, 120:290, :) = false; % Mask a corner
+    rgb_crop(~mask) = 0; 
+    % 
+    % imshow(rgb_crop)
     
-    % 3. Calculate Gradient on the COLOR channel, not just intensity
-    % This finds where "yellow-ness" or "blue-ness" changes
-    [Gmag, ~] = imgradient(target_chan);
+    % Stage 2: Segment image into color regions
+    numClusters = 6;
+    [segmented_rgb, Centers] = segment(rgb_crop, numClusters);
     
-    % 4. Combine with the original intensity gradient to find shadows
-    total_gradient = Gmag + imgradient(rgb2gray(sliced_rgb));
+    % Stage 3: Merge segments
+    [mergedMasks, sortedLabels] = mergeSegments(rgb_crop, segmented_rgb);
+    % visualize_merged_segments(mergedMasks, 2, 3);
     
-    % 5. Marker-controlled watershed
-    D = -bwdist(~bw);
-    % We use 'h-minima' to suppress noise. Increase 2.5 if still over-segmenting.
-    markers = imextendedmin(D, 2.5); 
-    W = imimposemin(total_gradient, markers);
+    % Stage 4: Perform watershed for instance segmentation
+    instanceMap = perform_watershed_segmentation(rgb_crop, mergedMasks);
+    display(instanceMap)
+    % visualize_step(label2rgb(instanceMap), 4, 'Labelled image');
+    % figure;
+    % imshow(instanceMap)
+    % Stage 5: Extract and visualize object properties
+    stats = extract_object_properties(instanceMap, 50); % 50 pixel area threshold
+    display(stats)
+    visualize_objects_with_axes(instanceMap, stats, 5);
     
-    L = watershed(W);
-    L(~bw) = 0;
-    
-    
-    numObjects = max(L(:));
-    for i = 1:numObjects
-        mask = (L == i);
-        instanceMap(mask) = currentID;
-        currentID = currentID + 1;
-    end
+    % Stage 6: Visualize poses in 3D
+    visualize_3d_poses(pointCloud, instanceMap, stats, 6);
 end
-subplot(3,2,4);
-
-imshow(label2rgb(instanceMap))
-title('Labelled image')
-
-
-CC = bwconncomp(instanceMap > 0);
-
-initStats = regionprops("table", CC, ...
-    "Area",...
-    "MajorAxisLength",...
-    "MinorAxisLength", ...
-    "Orientation", ...
-    "PixelIdxList","Centroid");
-
-% subplot(2,2,4);
-% imshow(label2rgb(instanceMap))
-
-% Need help in plotting the major and minor axes over the images here
-
-
-subplot(3,2,5);
-imshow(label2rgb(instanceMap, 'jet', 'k'));
-hold on;
-title('Object Detection with Axes');
-
-% Re-calculate stats to ensure we have Centroid and axes lengths
-% initStats = regionprops(instanceMap, 'Area', 'Centroid', 'MajorAxisLength', 'MinorAxisLength', 'Orientation');
-idx = [initStats.Area] > 50;
-stats = initStats(idx,:);
-
-
-for k = 1:height(stats)
-    % Get individual object properties
-    beam = stats(k,:).MajorAxisLength / 2;
-    crossbeam = stats(k,:).MinorAxisLength / 2;
-    avg = stats(k,:).Centroid;
-    angle = stats(k,:).Orientation; % In degrees
-    
-    % Convert orientation to radians for trigonometric functions
-    cosPhi = cosd(angle);
-    sinPhi = sind(angle);
-
-    % Calculate endpoints for Major Axis
-    x1 = avg(1) - beam * cosPhi;
-    y1 = avg(2) + beam * sinPhi;
-    x2 = avg(1) + beam * cosPhi;
-    y2 = avg(2) - beam * sinPhi;
-
-    % Calculate endpoints for Minor Axis
-    x3 = avg(1) + crossbeam * sinPhi;
-    y3 = avg(2) + crossbeam * cosPhi;
-    x4 = avg(1) - crossbeam * sinPhi;
-    y4 = avg(2) - crossbeam * cosPhi;
-
-    % Plot Major Axis (Red)
-    plot([x1, x2], [y1, y2], 'r', 'LineWidth', 2);
-    % Plot Minor Axis (Blue)
-    plot([x3, x4], [y3, y4], 'b', 'LineWidth', 2);
-    % Plot Centroid
-    plot(avg(1), avg(2), 'y+', 'MarkerSize', 10, 'LineWidth', 2);
-end
-hold off;
-
-
-
-
-subplot(3,2,6)
-% individual objects
-for k = 1:height(stats)
-    % Extract the individual object mask
-    objMask = (instanceMap == k);
-
-    pts = pointCloud.Location;
-    objPoints = pts(repmat(objMask, [1 1 3]));  
-    objPoints = reshape(objPoints, [], 3);
-    objPoints = objPoints(~any(isnan(objPoints),2), :); % remove NaNs
-    centroid = mean(objPoints, 1);   % [x y z]
-    stats = regionprops(objMask, 'Orientation', 'Area');
-    [~, maxIdx] = max([stats.Area]);
-    yaw = -deg2rad(stats(maxIdx).Orientation);   % radians
-    pose.yaw = yaw;
-    Rz = [ cos(yaw) -sin(yaw) 0;
-       sin(yaw)  cos(yaw) 0;
-       0         0        1 ];
-
-    pose.R = Rz;
-    pose.d = centroid;
-    T = [pose.R pose.d';
-        [0 0 0] 1];
-    display(T);
-    pcshow(pointCloud, "VerticalAxisDir", "Up");
-    hold on;
-    axis equal;
-    xlabel('X'); ylabel('Y'); zlabel('Z');
-        
-    p = pose.d;   % [X Y Z]
-    
-    plot3(p(1), p(2), p(3), 'ro', 'MarkerSize', 10, 'LineWidth', 2);
-        
-    L = 0.05;  % axis length (meters or point cloud units)
-    
-    x_axis = pose.R * [L;0;0];
-    y_axis = pose.R * [0;L;0];
-    z_axis = pose.R * [0;0;L];
-    
-    quiver3(p(1), p(2), p(3), x_axis(1), x_axis(2), x_axis(3), ...
-        'r', 'LineWidth', 2, 'MaxHeadSize', 0.5);
-    
-    quiver3(p(1), p(2), p(3), y_axis(1), y_axis(2), y_axis(3), ...
-        'g', 'LineWidth', 2, 'MaxHeadSize', 0.5);
-    
-    quiver3(p(1), p(2), p(3), z_axis(1), z_axis(2), z_axis(3), ...
-        'b', 'LineWidth', 2, 'MaxHeadSize', 0.5);
-end
-
-set(gca, 'ZDir', 'reverse');
-xlim([-0.2, 0.2]); 
-ylim([-0.3, 0.3]);
-zlim([0.4, 0.6]); % Focus on the first 30cm of depth
-
-hold off
-
-end
+ 
