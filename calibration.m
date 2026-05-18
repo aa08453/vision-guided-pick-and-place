@@ -1,8 +1,8 @@
 known = struct('color', {}, 'robot', {});
-known(1) = struct('color',"yellow", 'robot',[-20.25, 0, 2.5]);
-known(2) = struct('color',"red",    'robot',[0,  19.5, 2.5]);
-known(3) = struct('color',"blue",  'robot',[20.5, 0, 2.5]);
-known(4) = struct('color',"green",   'robot',[-20.25, 0, 2.5]);
+known(1) = struct('color',"yellow", 'robot',[-16, 0, 2.5]);
+known(2) = struct('color',"red",    'robot',[0,  16, 2.5]);
+known(3) = struct('color',"blue",  'robot',[18, 0, 2.5]);
+known(4) = struct('color',"green",   'robot',[0, -16.5, 2.5]);
 
 
 % Initialize RealSense pipeline
@@ -51,5 +51,5 @@ known(4) = struct('color',"green",   'robot',[-20.25, 0, 2.5]);
         end
 
 ptCloud = pcfromdepth(depth_frame, 1/depth_scaling, intrinsics, ColorImage=color_frame);
-save_path = "C:\Users\itadmin\Desktop\vision-guided-pick-and-place";
+save_path = "C:\Users\itadmin\Desktop\vision-guided-pick-and-place\calib.mat";
 calibrate_camera(ptCloud, known, save_path);
