@@ -15,9 +15,16 @@ function p_robot = cam_to_robot(p_cam_m, T)
         return;
     end
 
-    p_cam_cm = p_cam_m * 100;
+
+    % Promote to double up front. pcfromdepth gives `single` Location data,
+    % which propagates through the arm's IK and breaks checkCollision (which
+    % strictly requires double).
+    p_cam_cm = double(p_cam_m) * 100;
     N = size(p_cam_cm, 1);
     p_h = [p_cam_cm, ones(N, 1)];      % N x 4
-    p_robot_h = (T * p_h')';            % N x 4
+    
+
+
+    p_robot_h = (inv(T) * p_h')';            % N x 4
     p_robot = p_robot_h(:, 1:3);
 end

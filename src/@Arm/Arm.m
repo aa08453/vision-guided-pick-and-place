@@ -72,11 +72,11 @@ classdef Arm < handle
 
         moveByJoints(obj, jointAnglesCommanded)
         success = moveByCoordinates(obj, x, y, z, phi)
-        grip(obj)
+        grip(obj, target_width_cm)
         ungrip(obj)
         home(obj)
-        success = pickAndPlace(obj, x, y, z, phi, approach_dist)
-        success = place(obj, x, y, z, phi, approach_dist)
+        success = pickAndPlace(obj, x, y, z, phi, approach_dist, grip_width, pause_dur)
+        success = place(obj, x, y, z, phi, approach_dist, pause_dur)
 
         function setCubePos(obj, x, y, z)
             obj.cubePos  = [x, y, z];

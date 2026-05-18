@@ -21,7 +21,7 @@ function [instanceMap, sortedLabels] = vision_pipeline(pointCloud)
     % segmentation. Everything outside the crop is forced to ID = 0, so
     % out-of-workspace objects (e.g., calibration markers on the table edge)
     % cannot be picked up as targets.
-    targetSize = [480 480];
+    targetSize = [640 640];
     r = centerCropWindow2d(size(sliced_rgb), targetSize);
     rgb_crop = imcrop(sliced_rgb, r);
 

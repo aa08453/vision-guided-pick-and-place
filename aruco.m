@@ -1,18 +1,4 @@
-known = struct('color', {}, 'robot', {});
-known(1) = struct('color',"yellow", 'robot',[-6, 12.5, 2.5]);
-known(2) = struct('color',"red",    'robot',[0,  16, 4.75]);
-known(3) = struct('color',"blue",  'robot',[2, 17.5, 2.5]);
-known(4) = struct('color',"green",   'robot',[0, -16.5, 4.75]);
-
-
-
-
-% Initialize RealSense pipeline
-        pipe = realsense.pipeline();
-        cfg = realsense.config();
-cfg.enable_stream(realsense.stream.depth, 640, 480, realsense.format.z16, 30);
-cfg.enable_stream(realsense.stream.color, 640, 480, realsense.format.rgb8, 30);
-
+ pipe = realsense.pipeline();
         profile = pipe.start();
         
         % Get camera device information
@@ -48,14 +34,19 @@ cfg.enable_stream(realsense.stream.color, 640, 480, realsense.format.rgb8, 30);
             color_data = color.get_data();
             color_frame = permute(reshape(color_data', [3, color.get_width(), color.get_height()]), [3 2 1]);
             
-            % Create camera intrinsics object
-            intrinsics = cameraIntrinsics([depth_intrinsics.fx, depth_intrinsics.fy], ...
-                                          [depth_intrinsics.ppx, depth_intrinsics.ppy], ...
-                                          size(depth_frame));
             
             % Create point cloud
-        end
 
-ptCloud = pcfromdepth(depth_frame, 1/depth_scaling, intrinsics, ColorImage=color_frame);
-save_path = "C:\Users\itadmin\Desktop\vision-guided-pick-and-place\calib.mat";
-T = calibrate_camera(ptCloud, known, save_path);
+          color_stream = profile.get_stream(realsense.stream.color).as('video_stream_profile');
+    
+         % Get and display the intrinsics
+        color_intrinsics = color_stream.get_intrinsics();
+
+            intrinsics = cameraIntrinsics([color_intrinsics.fx, color_intrinsics.fy], ...
+                                          [color_intrinsics.ppx, color_intrinsics.ppy], ...
+                                          size(depth_frame));
+            
+        end       
+
+
+ T = calibrate_camera_aruco(0, -12.5, 0, 0, 'marker_size', 10, 'intrinsics', intrinsics)

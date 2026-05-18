@@ -9,7 +9,9 @@ function cubes = snapshot_cubes(ptCloud, T_cam_to_robot, opts)
     %   .min_pts_3d    minimum valid 3D points required to keep a cube (default 30)
     %
     % Returns a struct array. Each element has:
-    %   .color       string  ("yellow" | "red" | "green" | "blue")
+    %   .color       string  -- currently always "any" while color logic
+    %                          is commented out in hsv_segment.m.
+    %                          Originally "yellow" | "red" | "green" | "blue".
     %   .pos_cam     1x3     centroid in camera frame (meters)
     %   .pos_robot   1x3     centroid in robot frame (cm)
     %   .yaw_robot   scalar  major-axis direction in robot XY plane (rad)
