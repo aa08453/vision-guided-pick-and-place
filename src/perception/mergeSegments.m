@@ -87,11 +87,11 @@ function [mergedMasks, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb)
     
     % Define reference colors (RGB values)
     % [referenceColors, labels] = get_reference_colors();
-    y = [216 186 82];        % Yellow
-    r = [159 99 99];         % Red
-    g = [50 128 115];        % Green
+    y = [120 110 47];        % Yellow
+    r = [100 50 50];         % Red
+    g = [20 60 60];        % Green
     b = [27 128 179];        % Blue
-    grey = [98 86 68];       % Grey
+    grey = [20 20 20];       % Grey
     background = [0 0 0];    % Background (black)
     
     referenceColors = double([y; r; g; b; grey; background]);
@@ -154,8 +154,8 @@ function [mergedMasks, sortedLabels] = mergeSegments(sliced_rgb, segmented_rgb)
         spatial_dists_norm = spatial_dists / max(spatial_dists + 1e-10);
         
         % Weighted combination
-        color_weight = 0.75;      % 75% weight to color distance
-        spatial_weight = 0.25;    % 25% weight to spatial distance
+        color_weight = 0.5;      % 75% weight to color distance
+        spatial_weight = 0.5;    % 25% weight to spatial distance
         
         combined_dists = color_weight * color_dists_norm + spatial_weight * spatial_dists_norm;
         
