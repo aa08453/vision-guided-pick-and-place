@@ -66,9 +66,4 @@ Notes on simulation
 - Use the scripts in `src` and the sample data in `data` to reproduce perception and motion experiments. See the individual reports in `reports` for experiment parameters and detailed procedures.
 
 ## License
-- This repository includes a LICENSE file at the project root. Review the license for permitted uses.
-
----
-
-If you want, I can also add quick run commands or a short demo script to automate starting the full pipeline from a clean MATLAB session.
-
+- This project abides by the MIT License.
